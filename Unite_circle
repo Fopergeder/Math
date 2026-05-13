@@ -1,0 +1,853 @@
+<!DOCTYPE html>
+
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Единичная окружность</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Crimson+Pro:ital,wght@0,400;0,600;1,400&display=swap');
+
+/* ── Цветовая схема ── */
+:root {
+–bg:      #0d0f14;
+–surface: #13161e;
+–border:  #1e2330;
+–text:    #c8cfe0;
+–dim:     #5a6070;
+–accent:  #7c6dfa;
+–sin:     #3dffa0;
+–cos:     #4db8ff;
+–tan:     #ffaa00;
+–cot:     #ff5fa0;
+–point:   #ff4466;
+}
+
+- { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+background: var(–bg);
+color: var(–text);
+font-family: ‘JetBrains Mono’, monospace;
+min-height: 100vh;
+display: flex;
+flex-direction: column;
+align-items: center;
+padding: 16px;
+user-select: none;
+}
+
+/* ── Layout ──
+Мобиль (<768px): вертикально
+Десктоп (≥768px): канвас слева | кнопки + значения справа
+── */
+.layout {
+display: flex;
+flex-direction: column;
+align-items: center;
+gap: 16px;
+width: 100%;
+max-width: 1100px;
+}
+
+.left-panel { display: none; } /* на мобиле скрыта */
+
+.right-panel {
+display: flex;
+flex-direction: column;
+align-items: center;
+gap: 16px;
+width: 100%;
+}
+
+@media (min-width: 768px) {
+.layout {
+flex-direction: row;
+align-items: flex-start;
+justify-content: center;
+gap: 24px;
+}
+.layout .canvas-wrapper { flex-shrink: 0; }
+.left-panel { display: none; }
+
+```
+.right-panel {
+  flex: 1;
+  align-items: stretch;
+  gap: 16px;
+}
+
+/* Кнопки в колонку, растянуты на всю ширину */
+.controls {
+  flex-direction: column;
+  align-items: stretch;
+  width: 100%;
+}
+.controls .btn {
+  width: 100%;
+  text-align: left;
+}
+
+.stats { max-width: 100%; }
+```
+
+}
+
+h1 {
+font-family: ‘Crimson Pro’, serif;
+font-size: 1.8rem;
+font-weight: 600;
+color: #e8ecf8;
+margin-bottom: 20px;
+}
+
+/* ── Канвас ── */
+.canvas-wrapper {
+position: relative;
+background: var(–surface);
+border: 1px solid var(–border);
+border-radius: 16px;
+padding: 8px;
+box-shadow: 0 0 60px rgba(124,109,250,0.08), 0 20px 60px rgba(0,0,0,0.5);
+cursor: crosshair;
+touch-action: none;
+}
+canvas { display: block; border-radius: 10px; }
+
+/* ── Счётчик оборотов ── */
+.lvl-wrap {
+position: absolute;
+top: 10px; left: 10px;
+display: flex;
+align-items: center;
+gap: 6px;
+}
+.lvl {
+font-size: 0.75rem;
+font-weight: 600;
+color: rgba(124,109,250,0.85);
+background: rgba(13,15,20,0.7);
+padding: 4px 9px;
+border-radius: 8px;
+border: 1px solid rgba(124,109,250,0.3);
+pointer-events: none;
+letter-spacing: 0.05em;
+}
+.lvl-reset {
+font-family: ‘JetBrains Mono’, monospace;
+font-size: 0.65rem;
+font-weight: 600;
+color: rgba(124,109,250,0.7);
+background: rgba(13,15,20,0.7);
+padding: 4px 8px;
+border-radius: 8px;
+border: 1px solid rgba(124,109,250,0.25);
+cursor: pointer;
+transition: all 0.15s;
+}
+.lvl-reset:hover { border-color: rgba(124,109,250,0.7); color: rgba(124,109,250,1); }
+
+/* ── Кнопки переключения ── */
+.controls {
+display: flex;
+gap: 8px;
+margin-top: 16px;
+flex-wrap: wrap;
+justify-content: center;
+}
+.btn {
+font-family: ‘JetBrains Mono’, monospace;
+font-size: 0.82rem;
+padding: 10px 18px;
+border: 1px solid var(–border);
+background: var(–surface);
+color: var(–dim);
+border-radius: 20px;
+cursor: pointer;
+transition: all 0.15s;
+letter-spacing: 0.03em;
+}
+.btn:hover  { border-color: var(–accent); color: var(–accent); }
+.btn.active { background: var(–accent); border-color: var(–accent); color: #fff; }
+
+/* ── Панель значений ── */
+.stats {
+display: grid;
+grid-template-columns: repeat(3, 1fr);
+gap: 10px;
+margin-top: 16px;
+width: 100%;
+max-width: 500px;
+}
+.stat-col { display: flex; flex-direction: column; gap: 8px; }
+.stat {
+background: var(–surface);
+border: 1px solid var(–border);
+border-radius: 14px;
+padding: 16px 18px;
+text-align: center;
+flex: 1;
+min-height: 80px;
+display: flex;
+flex-direction: column;
+justify-content: center;
+overflow: hidden;
+}
+.stat-label {
+font-size: 0.68rem;
+color: var(–dim);
+letter-spacing: 0.1em;
+text-transform: uppercase;
+margin-bottom: 6px;
+white-space: nowrap;
+}
+.stat-value {
+font-size: 1.1rem;
+font-weight: 600;
+color: #e8ecf8;
+white-space: nowrap;
+overflow: hidden;
+text-overflow: ellipsis;
+}
+.stat.angle .stat-value { color: var(–accent); }
+.stat.rad   .stat-value { color: #a0b0cc; }
+.stat.sin   .stat-value { color: var(–sin); }
+.stat.cos   .stat-value { color: var(–cos); }
+.stat.tan   .stat-value { color: var(–tan); }
+.stat.cot   .stat-value { color: var(–cot); }
+</style>
+
+</head>
+<body>
+
+<div class="layout">
+
+<!-- Канвас -->
+
+<div class="canvas-wrapper" id="wrapper">
+  <div class="lvl-wrap">
+    <div class="lvl" id="lvl-counter">lvl: 0</div>
+    <button class="lvl-reset" id="btn-reset">reset</button>
+  </div>
+  <canvas id="c"></canvas>
+</div>
+
+<!-- Правая панель: кнопки + значения -->
+
+<div class="right-panel">
+  <div class="controls">
+    <button class="btn active" id="btn-sin">sin / cos</button>
+    <button class="btn active" id="btn-tan">tan</button>
+    <button class="btn active" id="btn-cot">cot</button>
+    <button class="btn active" id="btn-labels">метки углов</button>
+    <button class="btn"        id="btn-coords">координаты</button>
+  </div>
+
+  <div class="stats">
+    <div class="stat-col">
+      <div class="stat angle"><div class="stat-label">Угол ψ °</div>  <div class="stat-value" id="v-deg">30</div></div>
+      <div class="stat rad">  <div class="stat-label">Угол ψ рад</div><div class="stat-value" id="v-rad">π/6</div></div>
+    </div>
+    <div class="stat-col">
+      <div class="stat sin"><div class="stat-label">sin ψ</div><div class="stat-value" id="v-sin">1/2</div></div>
+      <div class="stat cos"><div class="stat-label">cos ψ</div><div class="stat-value" id="v-cos">√3/2</div></div>
+    </div>
+    <div class="stat-col">
+      <div class="stat tan"><div class="stat-label">tan ψ</div><div class="stat-value" id="v-tan">1/√3</div></div>
+      <div class="stat cot"><div class="stat-label">cot ψ</div><div class="stat-value" id="v-cot">√3</div></div>
+    </div>
+  </div>
+</div><!-- end right-panel -->
+
+</div><!-- end layout -->
+
+<script>
+'use strict';
+
+// ════════════════════════════════════════════════
+//  КОНСТАНТЫ
+// ════════════════════════════════════════════════
+
+// Табличные углы: [значение в радианах, строковая метка].
+// Используются для подписей, засечек на окружности и snap-вибрации.
+const SPECIAL = [
+  [0,'0'],
+  [Math.PI/6,'π/6'], [Math.PI/4,'π/4'], [Math.PI/3,'π/3'],
+  [Math.PI/2,'π/2'], [2*Math.PI/3,'2π/3'], [3*Math.PI/4,'3π/4'],
+  [5*Math.PI/6,'5π/6'], [Math.PI,'π'],
+  [7*Math.PI/6,'7π/6'], [5*Math.PI/4,'5π/4'], [4*Math.PI/3,'4π/3'],
+  [3*Math.PI/2,'3π/2'], [5*Math.PI/3,'5π/3'], [7*Math.PI/4,'7π/4'],
+  [11*Math.PI/6,'11π/6'], [2*Math.PI,'2π'],
+];
+
+// Точные значения тригонометрических функций в табличных углах.
+// Отображаются вместо десятичных приближений (например, «√3/2» вместо «0.866»).
+const TRIG_VALS = {
+  sin: {'0':'0','π/6':'1/2','π/4':'√2/2','π/3':'√3/2','π/2':'1',
+        '2π/3':'√3/2','3π/4':'√2/2','5π/6':'1/2','π':'0',
+        '7π/6':'−1/2','5π/4':'−√2/2','4π/3':'−√3/2','3π/2':'−1',
+        '5π/3':'−√3/2','7π/4':'−√2/2','11π/6':'−1/2','2π':'0'},
+  cos: {'0':'1','π/6':'√3/2','π/4':'√2/2','π/3':'1/2','π/2':'0',
+        '2π/3':'−1/2','3π/4':'−√2/2','5π/6':'−√3/2','π':'−1',
+        '7π/6':'−√3/2','5π/4':'−√2/2','4π/3':'−1/2','3π/2':'0',
+        '5π/3':'1/2','7π/4':'√2/2','11π/6':'√3/2','2π':'1'},
+  tan: {'0':'0','π/6':'1/√3','π/4':'1','π/3':'√3','π/2':'∞',
+        '2π/3':'−√3','3π/4':'−1','5π/6':'−1/√3','π':'0',
+        '7π/6':'1/√3','5π/4':'1','4π/3':'√3','3π/2':'∞',
+        '5π/3':'−√3','7π/4':'−1','11π/6':'−1/√3','2π':'0'},
+  cot: {'0':'∞','π/6':'√3','π/4':'1','π/3':'1/√3','π/2':'0',
+        '2π/3':'−1/√3','3π/4':'−1','5π/6':'−√3','π':'∞',
+        '7π/6':'√3','5π/4':'1','4π/3':'1/√3','3π/2':'0',
+        '5π/3':'−1/√3','7π/4':'−1','11π/6':'−√3','2π':'∞'},
+};
+
+// Предвычисленные данные для меток и засечек.
+// Фильтруем 0 и 2π (совпадают на окружности), считаем cos/sin один раз.
+const TICK_DATA = SPECIAL
+  .filter(([a]) => a !== 0 && a !== 2*Math.PI)
+  .map(([a, label]) => [Math.cos(a), Math.sin(a), label]);
+
+// ════════════════════════════════════════════════
+//  СОСТОЯНИЕ ПРИЛОЖЕНИЯ
+// ════════════════════════════════════════════════
+
+const canvas  = document.getElementById('c');
+const ctx     = canvas.getContext('2d');
+
+// DOM-элементы кэшируются один раз при загрузке —
+// document.getElementById дорог при вызове в каждом кадре
+const DOM = {
+  deg:  document.getElementById('v-deg'),
+  rad:  document.getElementById('v-rad'),
+  sin:  document.getElementById('v-sin'),
+  cos:  document.getElementById('v-cos'),
+  tan:  document.getElementById('v-tan'),
+  cot:  document.getElementById('v-cot'),
+  lvl:  document.getElementById('lvl-counter'),
+};
+
+// Геометрия канваса (пересчитывается при resize)
+let W, H, cx, cy, R;
+
+// Текущий угол ψ (накапливается за пределы [0, 2π] при оборотах)
+let angle = Math.PI / 6; // начальное значение: 30°
+
+// Флаги видимости слоёв
+let showSin    = true;   // отрезки sin/cos на осях координат
+let showCoords = false;  // прямоугольный треугольник (взаимоисключает showSin)
+let showTan    = true;   // ось тангенсов (x = 1)
+let showCot    = true;   // ось котангенсов (y = 1)
+let showLabels = true;   // подписи табличных углов на окружности
+
+// Счётчик полных оборотов (CCW → положительный, CW → отрицательный)
+let lvl = 0;
+
+// Переменные для отслеживания оборотов при перетаскивании
+let dragging      = false;
+let prevRawAngle  = null; // предыдущий atan2 ∈ (-π, π]
+let prevNormAngle = null; // предыдущий нормализованный угол ∈ [0, 2π)
+let revolutions   = 0;   // накопленные полуобороты (каждое пересечение ±π = 1)
+let lastSpecial   = null; // последний snap-угол (для однократной вибрации)
+
+// Координаты точки на окружности (обновляются в draw())
+let px = 0, py = 0;
+
+// ════════════════════════════════════════════════
+//  МАТЕМАТИЧЕСКИЕ УТИЛИТЫ
+// ════════════════════════════════════════════════
+
+// Нормализует угол в диапазон [0, 2π)
+function normalizeAngle(a) {
+  a = a % (2 * Math.PI);
+  return a < 0 ? a + 2 * Math.PI : a;
+}
+
+// Возвращает строковую метку, если угол близок к табличному (±0.015 рад ≈ 0.86°).
+// Иначе возвращает null.
+function findSpecial(a) {
+  const norm = normalizeAngle(a);
+  for (const [val, label] of SPECIAL)
+    if (Math.abs(norm - val) < 0.015) return label;
+  return null;
+}
+
+// Форматирует значение тригонометрической функции:
+// — табличный угол → точная дробь из TRIG_VALS («√3/2»)
+// — ∞ (tan/cot в особых точках) → «∞»
+// — иначе → десятичное с 3 знаками
+function fmt(value, fnName, specialLabel) {
+  if (specialLabel && TRIG_VALS[fnName]?.[specialLabel] !== undefined)
+    return TRIG_VALS[fnName][specialLabel];
+  if (!isFinite(value) || Math.abs(value) > 999) return '∞';
+  return value.toFixed(3);
+}
+
+// Форматирует угол в радианах для панели значений.
+// При многократных оборотах добавляет суффикс ±n·2π.
+function radLabel(a) {
+  const norm    = normalizeAngle(a);
+  const base    = findSpecial(a) || norm.toFixed(3);
+  if (lvl === 0) return base;
+  if (lvl  > 0)  return base + ' + ' + lvl + '·2π';
+  // CW-обороты: отрицательное значение
+  const sp = findSpecial(a);
+  if (sp) return sp + ' − ' + Math.abs(lvl) + '·2π';
+  return (norm - Math.abs(lvl) * 2 * Math.PI).toFixed(3);
+}
+
+// ════════════════════════════════════════════════
+//  ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ РИСОВАНИЯ
+// ════════════════════════════════════════════════
+
+// Рисует стрелку в конце оси: dir='r' — вправо, dir='u' — вверх
+function drawArrow(x, y, dir) {
+  ctx.beginPath();
+  if (dir === 'r') { ctx.moveTo(x,y); ctx.lineTo(x-7,y-4); ctx.lineTo(x-7,y+4); }
+  if (dir === 'u') { ctx.moveTo(x,y); ctx.lineTo(x-4,y+7); ctx.lineTo(x+4,y+7); }
+  ctx.closePath();
+  ctx.fill();
+}
+
+// Рисует пунктир вдоль направления радиуса до вертикальной прямой x = targetX.
+// Геометрически: находим t такое, что cx + t*(px-cx) = targetX, берём y = cy + t*(py-cy).
+function dashedToVertical(targetX, color) {
+  if (Math.abs(px - cx) < 1) return;
+  const t    = (targetX - cx) / (px - cx);
+  const intY = cy + t * (py - cy);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1;
+  ctx.setLineDash([3, 5]);
+  ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(targetX, intY); ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+// Рисует пунктир вдоль направления радиуса до горизонтальной прямой y = targetY.
+// Геометрически: находим t такое, что cy + t*(py-cy) = targetY, берём x = cx + t*(px-cx).
+function dashedToHorizontal(targetY, color) {
+  if (Math.abs(py - cy) < 1) return;
+  const t    = (targetY - cy) / (py - cy);
+  const intX = cx + t * (px - cx);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1;
+  ctx.setLineDash([3, 5]);
+  ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(intX, targetY); ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+// Рисует дугу в математически корректном направлении.
+// Canvas имеет перевёрнутую ось Y, поэтому:
+//   CCW в математике = anticlockwise:true в canvas (угол end = -norm)
+//   CW  в математике = anticlockwise:false в canvas (угол end = 2π - norm)
+function drawArc(radius, norm) {
+  ctx.beginPath();
+  if (lvl >= 0) {
+    ctx.arc(cx, cy, radius, 0, -norm, true);  // CCW
+  } else {
+    const cw = (2 * Math.PI - norm) % (2 * Math.PI);
+    ctx.arc(cx, cy, radius, 0, cw || 0, false); // CW
+  }
+  ctx.stroke();
+}
+
+// ════════════════════════════════════════════════
+//  ГЛАВНАЯ ФУНКЦИЯ РИСОВАНИЯ
+// ════════════════════════════════════════════════
+
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+
+  // Тригонометрические значения текущего угла
+  const sinA = Math.sin(angle);
+  const cosA = Math.cos(angle);
+  const tanA = Math.tan(angle);
+  const cotA = cosA / sinA;
+
+  // Координаты точки P = (cos ψ, sin ψ) на единичной окружности в системе canvas.
+  // Canvas: ось Y направлена вниз, поэтому py = cy - R·sinA.
+  px = cx + R * cosA;
+  py = cy - R * sinA;
+
+  const special = findSpecial(angle);
+  const norm    = normalizeAngle(angle);
+
+  // ── 1. Сетка (пунктирные вспомогательные линии) ──
+  ctx.strokeStyle = '#1a1e2a';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4, 6]);
+  ctx.beginPath(); ctx.moveTo(0, cy); ctx.lineTo(W, cy); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx, 0); ctx.lineTo(cx, H); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // ── 2. Оси координат X и Y ──
+  ctx.strokeStyle = '#2a3040';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(8, cy); ctx.lineTo(W-8, cy); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx, 8); ctx.lineTo(cx, H-8); ctx.stroke();
+  ctx.fillStyle = '#2a3040';
+  drawArrow(W-8, cy, 'r');
+  drawArrow(cx,  8,  'u');
+
+  // ── 3. Единичная окружность ──
+  ctx.strokeStyle = '#2e3545';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.arc(cx, cy, R, 0, 2*Math.PI); ctx.stroke();
+
+  // ── 4. Засечки в табличных углах ──
+  // Используем предвычисленные TICK_DATA — cos/sin уже посчитаны при загрузке.
+  ctx.strokeStyle = '#4a5570';
+  ctx.lineWidth = 1.5;
+  for (const [tx, ty] of TICK_DATA) {
+    ctx.beginPath();
+    ctx.moveTo(cx + (R-6)*tx, cy - (R-6)*ty);
+    ctx.lineTo(cx + (R+6)*tx, cy - (R+6)*ty);
+    ctx.stroke();
+  }
+
+  // ── 5. Серая дуга = длина дуги = угол в радианах ──
+  // На единичной окружности r=1, поэтому длина дуги = угол в радианах.
+  // Это наглядно показывает физический смысл радиана.
+  ctx.strokeStyle = 'rgba(180,185,210,0.55)';
+  ctx.lineWidth = 3.5;
+  ctx.lineCap = 'round';
+  drawArc(R, norm);
+  ctx.lineCap = 'butt';
+
+  // ── 6. Малая пунктирная дуга угла ψ (у центра) ──
+  ctx.strokeStyle = 'rgba(124,109,250,0.5)';
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([3, 4]);
+  drawArc(R * 0.18, norm);
+  ctx.setLineDash([]);
+
+  // ── 7. Подписи табличных углов ──
+  if (showLabels) drawAngleLabels();
+
+  // ── 8. Ось котангенсов (горизонталь y = 1) ──
+  // cot ψ = cos/sin — длина отрезка от точки (0,1) до пересечения радиуса с y=1.
+  if (showCot && Math.abs(sinA) > 0.05) {
+    const cotX    = cx + R * (cosA / sinA); // x-координата конца отрезка
+    const cotAxisY = cy - R;                // canvas y для y=1 в математике
+
+    ctx.strokeStyle = 'rgba(255,95,160,0.4)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([5, 5]);
+    ctx.beginPath(); ctx.moveTo(10, cotAxisY); ctx.lineTo(W-10, cotAxisY); ctx.stroke();
+    ctx.setLineDash([]);
+
+    ctx.fillStyle = 'rgba(255,95,160,0.55)';
+    ctx.beginPath(); ctx.moveTo(W-8,cotAxisY); ctx.lineTo(W-15,cotAxisY-3); ctx.lineTo(W-15,cotAxisY+3); ctx.closePath(); ctx.fill();
+
+    ctx.strokeStyle = 'rgba(255,95,160,0.9)';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.moveTo(cx, cotAxisY); ctx.lineTo(cotX, cotAxisY); ctx.stroke();
+
+    dashedToHorizontal(cotAxisY, 'rgba(255,95,160,0.3)');
+
+    ctx.fillStyle = 'rgba(255,95,160,0.9)';
+    ctx.font = "italic 600 13px 'Crimson Pro', serif";
+    ctx.fillText('cot ψ', W-52, cotAxisY-6);
+  }
+
+  // ── 9. Ось тангенсов (вертикаль x = 1) ──
+  // tan ψ = sin/cos — длина отрезка от точки (1,0) до пересечения радиуса с x=1.
+  if (showTan && Math.abs(cosA) > 0.05) {
+    const tanAxisX  = cx + R;
+    const tanY      = cy - R * tanA;
+    const tanYclamp = Math.max(4, Math.min(H-4, tanY));
+
+    ctx.strokeStyle = 'rgba(255,170,0,0.4)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([5, 5]);
+    ctx.beginPath(); ctx.moveTo(tanAxisX, 10); ctx.lineTo(tanAxisX, H-10); ctx.stroke();
+    ctx.setLineDash([]);
+
+    ctx.fillStyle = 'rgba(255,170,0,0.55)';
+    ctx.beginPath(); ctx.moveTo(tanAxisX,8); ctx.lineTo(tanAxisX-3,15); ctx.lineTo(tanAxisX+3,15); ctx.closePath(); ctx.fill();
+
+    ctx.strokeStyle = 'rgba(255,170,0,0.9)';
+    ctx.lineWidth = 2.5;
+    ctx.save();
+    ctx.beginPath(); ctx.rect(0, 0, W, H); ctx.clip();
+    ctx.beginPath(); ctx.moveTo(tanAxisX, cy); ctx.lineTo(tanAxisX, tanYclamp); ctx.stroke();
+    ctx.restore();
+
+    dashedToVertical(tanAxisX, 'rgba(255,170,0,0.3)');
+
+    ctx.fillStyle = 'rgba(255,170,0,0.9)';
+    ctx.font = "italic 600 13px 'Crimson Pro', serif";
+    ctx.fillText('tan ψ', tanAxisX+5, 22);
+  }
+
+  // ── 10. Радиус-вектор r = 1 ──
+  ctx.strokeStyle = 'rgba(220,220,255,0.8)';
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(px, py); ctx.stroke();
+
+  // Подпись r=1 вдоль линии радиуса (повёрнута параллельно)
+  {
+    const dx  = px - cx, dy = py - cy;
+    const len = Math.sqrt(dx*dx + dy*dy);
+    ctx.save();
+    ctx.translate((cx+px)/2 + dy/len*10, (cy+py)/2 - dx/len*10);
+    ctx.rotate(Math.atan2(dy, dx));
+    ctx.fillStyle = 'rgba(200,207,224,0.55)';
+    ctx.font = "500 10px 'JetBrains Mono', monospace";
+    ctx.textAlign = 'center';
+    ctx.fillText('r=1', 0, 0);
+    ctx.restore();
+    ctx.textAlign = 'left';
+  }
+
+  // ── 11. Режим «координаты»: прямоугольный треугольник ──
+  // Наглядно показывает, что cos ψ и sin ψ — это катеты прямоугольного треугольника,
+  // вписанного в единичную окружность.
+  if (showCoords) {
+    // Вертикальный катет = sin ψ (от оси X до точки P)
+    ctx.strokeStyle = '#3dffa0';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.moveTo(px, cy); ctx.lineTo(px, py); ctx.stroke();
+
+    // Горизонтальный катет = cos ψ (от начала координат до проекции P на X)
+    ctx.strokeStyle = '#4db8ff';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(px, cy); ctx.stroke();
+
+    // Значок прямого угла в точке (px, cy)
+    const s  = 9;
+    const dx = cosA >= 0 ? -s : s;
+    const dy = sinA >= 0 ? -s : s;
+    ctx.strokeStyle = 'rgba(200,220,255,0.75)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(px+dx, cy);
+    ctx.lineTo(px+dx, cy+dy);
+    ctx.lineTo(px,    cy+dy);
+    ctx.stroke();
+
+    // Подписи катетов
+    ctx.font = "italic 600 13px 'Crimson Pro', serif";
+    ctx.fillStyle = '#3dffa0';
+    ctx.fillText('sin ψ', cosA >= 0 ? px+6 : px-42, (cy+py)/2+4);
+    ctx.fillStyle = '#4db8ff';
+    const cosLbl = 'cos ψ';
+    ctx.fillText(cosLbl, (cx+px)/2 - ctx.measureText(cosLbl).width/2, sinA >= 0 ? cy+15 : cy-5);
+  }
+
+  // ── 12. Режим «sin/cos»: проекции на оси ──
+  // sin ψ откладывается на оси Y, cos ψ — на оси X.
+  // Показывает, что sin и cos — это проекции единичного радиуса на соответствующие оси.
+  if (showSin) {
+    const sinEndY = cy - sinA * R;
+    const cosEndX = cx + cosA * R;
+
+    ctx.lineWidth = 3;
+    ctx.lineCap = 'round';
+
+    ctx.strokeStyle = '#3dffa0';
+    ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx, sinEndY); ctx.stroke();
+
+    ctx.strokeStyle = '#4db8ff';
+    ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cosEndX, cy); ctx.stroke();
+
+    ctx.lineCap = 'butt';
+
+    // Пунктирные проекции от точки P до осей
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 5]);
+    ctx.strokeStyle = 'rgba(61,255,160,0.25)';
+    ctx.beginPath(); ctx.moveTo(cx, py); ctx.lineTo(px, py); ctx.stroke();
+    ctx.strokeStyle = 'rgba(77,184,255,0.25)';
+    ctx.beginPath(); ctx.moveTo(px, cy); ctx.lineTo(px, py); ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Фиксированные подписи у концов осей
+    ctx.font = "italic 600 13px 'Crimson Pro', serif";
+    ctx.fillStyle = '#3dffa0';
+    ctx.fillText('sin ψ', cx+6, 22);
+    ctx.fillStyle = '#4db8ff';
+    const cosLbl = 'cos ψ';
+    ctx.fillText(cosLbl, W - ctx.measureText(cosLbl).width - 8, cy-6);
+  }
+
+  // ── 13. Метка угла ψ у дуги ──
+  // При оборотах добавляется суффикс ±n·2π.
+  {
+    const mid = angle / 2;
+    const r   = R * 0.22;
+    const lbl = lvl === 0 ? 'ψ' : lvl > 0 ? 'ψ+' + lvl + '·2π' : 'ψ' + lvl + '·2π';
+    ctx.fillStyle = 'rgba(200,207,224,0.7)';
+    ctx.font = "italic 14px 'Crimson Pro', serif";
+    ctx.fillText(lbl, cx + r*Math.cos(mid) - 4, cy - r*Math.sin(mid) + 5);
+  }
+
+  // ── 14. Точка P на окружности ──
+  ctx.beginPath(); ctx.arc(px, py, 7, 0, 2*Math.PI);
+  ctx.fillStyle = '#ff4466'; ctx.fill();
+  ctx.strokeStyle = '#ff8899'; ctx.lineWidth = 2; ctx.stroke();
+
+  // ── 15. Координатная метка (cos ψ, sin ψ) с цветовым выделением ──
+  if (showCoords) {
+    const cX = fmt(cosA, 'cos', special);
+    const cY = fmt(sinA, 'sin', special);
+    ctx.font = "500 11px 'JetBrains Mono', monospace";
+    let lx = px+10, ly = py-10;
+    if (px > W*0.75) lx = px-100;
+    if (py < H*0.15) ly = py+20;
+    const DIM = 'rgba(200,207,224,0.7)';
+    const parts = [['(', DIM], [cX, '#4db8ff'], [', ', DIM], [cY, '#3dffa0'], [')', DIM]];
+    for (const [text, color] of parts) {
+      ctx.fillStyle = color;
+      ctx.fillText(text, lx, ly);
+      lx += ctx.measureText(text).width;
+    }
+  }
+
+  // ── 16. Обновление панели значений ──
+  // Обновляем DOM через кэшированные ссылки (не getElementById каждый кадр)
+  DOM.deg.textContent = Math.round(angle * 180 / Math.PI);
+  DOM.rad.textContent = radLabel(angle);
+  DOM.lvl.textContent = 'lvl: ' + lvl;
+  DOM.sin.textContent = fmt(sinA, 'sin', special);
+  DOM.cos.textContent = fmt(cosA, 'cos', special);
+  DOM.tan.textContent = fmt(tanA, 'tan', special);
+  DOM.cot.textContent = fmt(cotA, 'cot', special);
+}
+
+// Рисует подписи табличных углов вокруг окружности.
+// При ненулевом lvl добавляет суффикс ±n·2π к каждой метке.
+// TICK_DATA содержит [cos, sin, label] — всё нужное без пересчёта.
+function drawAngleLabels() {
+  ctx.font = "10px 'JetBrains Mono', monospace";
+  ctx.fillStyle = '#5a6a88';
+  const suffix      = lvl === 0 ? '' : (lvl > 0 ? '+' : '') + lvl + '·2π';
+  const cleanSuffix = suffix.replace('+', ''); // для метки '0'
+  for (const [tx, ty, label] of TICK_DATA) {
+    const lx      = cx + (R+18) * tx;
+    const ly      = cy - (R+18) * ty;
+    const display = label === '0' && lvl !== 0 ? cleanSuffix : label + suffix;
+    ctx.fillText(display, lx - ctx.measureText(display).width/2, ly+4);
+  }
+}
+
+// ════════════════════════════════════════════════
+//  ОБРАБОТКА ВВОДА
+// ════════════════════════════════════════════════
+
+// Вычисляет математический угол из позиции курсора/касания.
+// atan2(y, x) возвращает угол ∈ (-π, π].
+// Canvas Y перевёрнут, поэтому берём (cy - clientY).
+function getRawAngle(e) {
+  const rect = canvas.getBoundingClientRect();
+  const src  = e.touches ? e.touches[0] : e;
+  const x    = (src.clientX - rect.left) * (W / rect.width)  - cx;
+  const y    = cy - (src.clientY - rect.top) * (H / rect.height);
+  return Math.atan2(y, x);
+}
+
+// Обновляет накопленный угол и счётчики оборотов при каждом движении.
+function updateAngle(raw) {
+  if (prevRawAngle !== null) {
+    const delta = raw - prevRawAngle;
+    // atan2 скачет на ~2π при пересечении границы ±π (каждые 180°).
+    // Компенсируем прыжок в счётчике полуоборотов.
+    if (delta < -Math.PI) revolutions++;
+    if (delta >  Math.PI) revolutions--;
+  }
+  prevRawAngle = raw;
+  angle = raw + revolutions * 2 * Math.PI;
+
+  // Отслеживаем полные обороты через нормализованный угол.
+  // Прыжок нормализованного угла с ~2π до ~0 → один CCW-оборот (lvl++).
+  // Прыжок с ~0 до ~2π → один CW-оборот (lvl--).
+  const norm = normalizeAngle(angle);
+  if (prevNormAngle !== null) {
+    const dn = norm - prevNormAngle;
+    if (dn < -Math.PI) lvl++;
+    if (dn >  Math.PI) lvl--;
+  }
+  prevNormAngle = norm;
+
+  // Вибрация при попадании в табличный угол (работает на Android)
+  const special = findSpecial(angle);
+  if (special && special !== lastSpecial) {
+    if (navigator.vibrate) navigator.vibrate(30);
+    lastSpecial = special;
+  } else if (!special) {
+    lastSpecial = null;
+  }
+
+  draw();
+}
+
+// При новом касании синхронизируем revolutions с текущим angle.
+// Без этого при повторном касании будет прыжок угла.
+function startDrag(e) {
+  dragging      = true;
+  const raw     = getRawAngle(e);
+  revolutions   = Math.round((angle - raw) / (2 * Math.PI));
+  prevNormAngle = normalizeAngle(angle);
+  updateAngle(raw);
+}
+
+function endDrag() { dragging = false; prevRawAngle = null; }
+
+canvas.addEventListener('mousedown',  e => startDrag(e));
+canvas.addEventListener('mousemove',  e => { if (dragging) updateAngle(getRawAngle(e)); });
+canvas.addEventListener('mouseup',    () => endDrag());
+canvas.addEventListener('touchstart', e => { e.preventDefault(); startDrag(e); }, {passive:false});
+canvas.addEventListener('touchmove',  e => { e.preventDefault(); if (dragging) updateAngle(getRawAngle(e)); }, {passive:false});
+canvas.addEventListener('touchend',   () => endDrag());
+
+// Сброс: угол нормализуется в [0, 2π), счётчики обнуляются. Точка не прыгает.
+document.getElementById('btn-reset').addEventListener('click', () => {
+  lvl = revolutions = 0;
+  angle         = normalizeAngle(angle);
+  prevRawAngle  = null;
+  prevNormAngle = normalizeAngle(angle);
+  draw();
+});
+
+// Переключатели видимости. sin/cos и координаты взаимоисключают друг друга.
+const state = {sin: true, tan: true, cot: true, labels: true, coords: false};
+
+['sin','tan','cot','labels','coords'].forEach(k => {
+  document.getElementById('btn-'+k).addEventListener('click', function() {
+    state[k] = !state[k];
+
+    if (k === 'sin'    && state.sin    && state.coords) { state.coords = false; document.getElementById('btn-coords').classList.remove('active'); }
+    if (k === 'coords' && state.coords && state.sin)    { state.sin    = false; document.getElementById('btn-sin').classList.remove('active'); }
+
+    showSin = state.sin; showTan = state.tan; showCot = state.cot;
+    showLabels = state.labels; showCoords = state.coords;
+
+    this.classList.toggle('active');
+    draw();
+  });
+});
+
+// ════════════════════════════════════════════════
+//  ИНИЦИАЛИЗАЦИЯ
+// ════════════════════════════════════════════════
+
+function resize() {
+  const isDesktop = window.innerWidth >= 768;
+  let maxSize;
+  if (isDesktop) {
+    // Правая панель ~220px + отступы ~48px
+    maxSize = Math.min(window.innerWidth - 220 - 48, window.innerHeight - 48);
+  } else {
+    maxSize = window.innerWidth - 32;
+  }
+  W = H = Math.round(Math.max(maxSize, 280));
+  canvas.width = W; canvas.height = H;
+  cx = cy = W / 2;
+  R  = W * 0.36;
+  draw();
+}
+
+resize();
+window.addEventListener('resize', resize);
+</script>
+
+</body>
+</html>
