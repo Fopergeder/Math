@@ -1,0 +1,791 @@
+import { useState, useRef, useEffect, useCallback } from "react";
+
+const sup = (s) => `<sup style="font-size:0.75em;line-height:1">${s}</sup>`;
+const sub = (s) => `<sub style="font-size:0.7em;line-height:1">${s}</sub>`;
+function fmt(v) {
+  if (v === undefined || v === null || !isFinite(v)) return "?";
+  const n = parseFloat(v);
+  return Math.abs(n - Math.round(n)) < 0.001 ? String(Math.round(n)) : n.toFixed(2);
+}
+
+function fmtC(v) {
+  if (Math.abs(v - 1) < 0.001) return "";
+  if (Math.abs(v + 1) < 0.001) return "&minus;";
+  return fmt(v) + "&thinsp;&middot;&thinsp;";
+}
+function shift(v) {
+  if (Math.abs(v) < 0.001) return "";
+  return v > 0 ? ` + ${fmt(v)}` : ` &minus; ${fmt(-v)}`;
+}
+function trigArg(B, C) {
+  const bx = Math.abs(B-1)<0.001?"x":Math.abs(B+1)<0.001?"&minus;x":`${fmt(B)}x`;
+  const c = Math.abs(C)<0.001?"":(C>0?` + ${fmt(C)}`:` &minus; ${fmt(-C)}`);
+  return bx+c;
+}
+function trigEq(name, p) {
+  return `y = ${fmtC(p.A??1)}${name}(${trigArg(p.B??1,p.C??0)})${shift(p.D??0)}`;
+}
+function arcEq(name, p) {
+  const bx = Math.abs((p.B??1)-1)<0.001?"x":Math.abs((p.B??1)+1)<0.001?"&minus;x":`${fmt(p.B??1)}x`;
+  return `y = ${fmtC(p.A??1)}${name}(${bx})${shift(p.D??0)}`;
+}
+
+function getAsymptotes(fn, params, xMin, xMax) {
+  const v=[], h=[];
+  const {a,b,B,C,D,A}=params;
+  const vl=(x)=>v.push({x, label:`x = ${fmt(x)}`});
+  const hl=(y)=>h.push({y, label:`y = ${fmt(y)}`});
+  switch(fn.id){
+    case 'inv_prop':{
+      const av=a??1, bv=b??0;
+      if(Math.abs(av)>0.001) vl(-bv/av);
+      hl(D??0); break;
+    }
+    case 'log': vl(0); break;
+    case 'exp': hl(D??0); break;
+    case 'tan':
+    case 'cot':{
+      const Bv=B??1, Cv=C??0;
+      if(Math.abs(Bv)>0.001){
+        const isTan=fn.id==='tan';
+        const x0=isTan?(Math.PI/2-Cv)/Bv:-Cv/Bv;
+        const step=Math.PI/Bv;
+        const lo=xMin-Math.abs(step)*2, hi=xMax+Math.abs(step)*2;
+        for(let n=-30;n<=30;n++){const x=x0+n*step; if(x>=lo&&x<=hi) vl(x);}
+      } break;
+    }
+    case 'arctan':{
+      const Av=A??1, Dv=D??0;
+      hl(Dv+Math.abs(Av)*Math.PI/2); hl(Dv-Math.abs(Av)*Math.PI/2); break;
+    }
+    case 'arccot':{
+      const Av=A??1, Dv=D??0;
+      hl(Dv); hl(Dv+Math.abs(Av)*Math.PI); break;
+    }
+  }
+  return {verts:v, horizs:h};
+}
+const GEN={
+  linear_prop:"y = kx",
+  linear:"y = kx + b",
+  inv_prop:"y = k / (ax + b) + D",
+  quadratic:"y = ax² + bx + c",
+  cubic:"y = ax³ + bx² + cx + d",
+  nroot:"y = A·ⁿ√x + D",
+  exp:"y = A·aˣ + D",
+  log:"y = A·logₐ(x) + D",
+  sin:"y = A·sin(Bx+C) + D",
+  cos:"y = A·cos(Bx+C) + D",
+  tan:"y = A·tg(Bx+C) + D",
+  cot:"y = A·ctg(Bx+C) + D",
+  arcsin:"y = A·arcsin(Bx) + D",
+  arccos:"y = A·arccos(Bx) + D",
+  arctan:"y = A·arctg(Bx) + D",
+  arccot:"y = A·arcctg(Bx) + D",
+  circle:"(x−x₀)² + (y−y₀)² = r²",
+  ellipse:"(x−x₀)²/a² + (y−y₀)²/b² = 1"
+};
+
+const DISC=25;
+
+const PDA={key:"A",label:"A",min:-3,max:3,step:0.1};
+const PDB={key:"B",label:"B",min:-4,max:4,step:0.1};
+const PDC={key:"C",label:"C",min:-6.28,max:6.28,step:0.1};
+const PDD={key:"D",label:"D",min:-5,max:5,step:0.1};
+const PDB3={key:"B",label:"B",min:-3,max:3,step:0.1};
+
+const FUNCTIONS = [
+  { id:"linear_prop", name:"Прямая пропорц.", color:"#fb923c",
+    params:{k:1}, paramDefs:[{key:"k",label:"k",min:-5,max:5,step:0.1}],
+    fn:(x,p)=>p.k*x, domain:()=>true, eq:(p)=>`y = ${fmtC(p.k)}x`,
+  },
+  { id:"linear", name:"Линейная функция", color:"#f97316",
+    params:{k:1,b:0}, paramDefs:[{key:"k",label:"k",min:-5,max:5,step:0.1},{key:"b",label:"b",min:-8,max:8,step:0.1}],
+    fn:(x,p)=>p.k*x+p.b, domain:()=>true, eq:(p)=>`y = ${fmtC(p.k)}x${shift(p.b)}`,
+  },
+  { id:"inv_prop", name:"Обратная пропорц.", color:"#ef4444",
+    params:{k:1,a:1,b:0,D:0},
+    paramDefs:[{key:"k",label:"k",min:-10,max:10,step:0.5},{key:"a",label:"a",min:-5,max:5,step:0.1},{key:"b",label:"b",min:-8,max:8,step:0.1},{key:"D",label:"D",min:-8,max:8,step:0.1}],
+    fn:(x,p)=>{const d=p.a*x+p.b; return Math.abs(d)<1e-10?NaN:p.k/d+p.D;},
+    domain:(x,p)=>Math.abs(p.a*x+p.b)>1e-10,
+    eq:(p)=>`y = ${fmt(p.k)} / (${fmtC(p.a)}x${shift(p.b)})${shift(p.D)}`,
+  },
+  { id:"quadratic", name:"Квадратичная", color:"#a855f7",
+    params:{a:1,b:0,c:0}, paramDefs:[{key:"a",label:"a",min:-3,max:3,step:0.1},{key:"b",label:"b",min:-6,max:6,step:0.1},{key:"c",label:"c",min:-6,max:6,step:0.1}],
+    fn:(x,p)=>p.a*x*x+p.b*x+p.c, domain:()=>true,
+    eq:(p)=>{const a=fmtC(p.a); const bs=Math.abs(p.b)<0.001?"":(p.b>0?` + ${fmtC(p.b)}x`:` &minus; ${fmtC(-p.b)}x`); return `y = ${a}x${sup(2)}${bs}${shift(p.c)}`;},
+  },
+  { id:"cubic", name:"Кубическая", color:"#06b6d4",
+    params:{a:1,b:0,c:0,d:0},
+    paramDefs:[{key:"a",label:"a",min:-2,max:2,step:0.1},{key:"b",label:"b",min:-4,max:4,step:0.1},{key:"c",label:"c",min:-4,max:4,step:0.1},{key:"d",label:"d",min:-6,max:6,step:0.1}],
+    fn:(x,p)=>p.a*x*x*x+p.b*x*x+p.c*x+p.d, domain:()=>true,
+    eq:(p)=>{const a=fmtC(p.a); const bs=Math.abs(p.b)<0.001?"":(p.b>0?` + ${fmtC(p.b)}x${sup(2)}`:` &minus; ${fmtC(-p.b)}x${sup(2)}`); const cs=Math.abs(p.c)<0.001?"":(p.c>0?` + ${fmtC(p.c)}x`:` &minus; ${fmtC(-p.c)}x`); return `y = ${a}x${sup(3)}${bs}${cs}${shift(p.d)}`;},
+  },
+  { id:"nroot", name:"Корень степени n", color:"#22c55e",
+    params:{A:1,n:2,D:0}, paramDefs:[PDA,{key:"n",label:"n",min:2,max:7,step:1},PDD],
+    fn:(x,p)=>{const n=Math.round(p.n); if(n%2===0&&x<0)return NaN; return p.A*Math.pow(Math.abs(x),1/n)*(x<0?-1:1)+p.D;},
+    domain:(x,p)=>Math.round(p.n)%2===0?x>=0:true,
+    eq:(p)=>{const n=Math.round(p.n); const root=n===2?`&radic;<span style='text-decoration:overline'>x</span>`:`${sup(n)}&radic;<span style='text-decoration:overline'>x</span>`; return `y = ${fmtC(p.A)}${root}${shift(p.D)}`;},
+  },
+  { id:"exp", name:"Показательная", color:"#a855f7",
+    params:{A:1,a:2,D:0}, paramDefs:[PDA,{key:"a",label:"a",min:0.1,max:5,step:0.1},PDD],
+    fn:(x,p)=>p.A*Math.pow(p.a,x)+p.D, domain:()=>true,
+    eq:(p)=>{const base=Math.abs(p.a-Math.E)<0.01?"e":fmt(p.a); return `y = ${fmtC(p.A)}${base}${sup("x")}${shift(p.D)}`;},
+  },
+  { id:"log", name:"Логарифмическая", color:"#06b6d4",
+    params:{A:1,a:Math.E,D:0}, paramDefs:[PDA,{key:"a",label:"a",min:0.1,max:10,step:0.1},PDD],
+    fn:(x,p)=>p.A*(Math.log(x)/Math.log(p.a))+p.D,
+    domain:(x,p)=>x>0&&p.a>0&&p.a!==1,
+    eq:(p)=>{const base=Math.abs(p.a-Math.E)<0.01?"e":fmt(p.a); return `y = ${fmtC(p.A)}log${sub(base)}(x)${shift(p.D)}`;},
+  },
+  { id:"sin", name:"Синус", color:"#ef4444",
+    params:{A:1,B:1,C:0,D:0}, paramDefs:[PDA,PDB,PDC,PDD],
+    fn:(x,p)=>p.A*Math.sin(p.B*x+p.C)+p.D, domain:()=>true, eq:(p)=>trigEq("sin",p),
+  },
+  { id:"cos", name:"Косинус", color:"#3b82f6",
+    params:{A:1,B:1,C:0,D:0}, paramDefs:[PDA,PDB,PDC,PDD],
+    fn:(x,p)=>p.A*Math.cos(p.B*x+p.C)+p.D, domain:()=>true, eq:(p)=>trigEq("cos",p),
+  },
+  { id:"tan", name:"Тангенс", color:"#f59e0b",
+    params:{A:1,B:1,C:0,D:0}, paramDefs:[PDA,PDB,PDC,PDD],
+    fn:(x,p)=>p.A*Math.tan(p.B*x+p.C)+p.D, domain:()=>true, eq:(p)=>trigEq("tg",p),
+  },
+  { id:"cot", name:"Котангенс", color:"#ec4899",
+    params:{A:1,B:1,C:0,D:0}, paramDefs:[PDA,PDB,PDC,PDD],
+    fn:(x,p)=>p.A*(Math.cos(p.B*x+p.C)/Math.sin(p.B*x+p.C))+p.D, domain:()=>true, eq:(p)=>trigEq("ctg",p),
+  },
+  { id:"arcsin", name:"Арксинус", color:"#14b8a6",
+    params:{A:1,B:1,D:0}, paramDefs:[PDA,PDB3,PDD],
+    fn:(x,p)=>p.A*Math.asin(p.B*x)+p.D, domain:(x,p)=>Math.abs(p.B*x)<=1, eq:(p)=>arcEq("arcsin",p),
+  },
+  { id:"arccos", name:"Арккосинус", color:"#8b5cf6",
+    params:{A:1,B:1,D:0}, paramDefs:[PDA,PDB3,PDD],
+    fn:(x,p)=>p.A*Math.acos(p.B*x)+p.D, domain:(x,p)=>Math.abs(p.B*x)<=1, eq:(p)=>arcEq("arccos",p),
+  },
+  { id:"arctan", name:"Арктангенс", color:"#f43f5e",
+    params:{A:1,B:1,D:0}, paramDefs:[PDA,PDB3,PDD],
+    fn:(x,p)=>p.A*Math.atan(p.B*x)+p.D, domain:()=>true, eq:(p)=>arcEq("arctg",p),
+  },
+  { id:"arccot", name:"Арккотангенс", color:"#0ea5e9",
+    params:{A:1,B:1,D:0}, paramDefs:[PDA,PDB3,PDD],
+    fn:(x,p)=>p.A*(Math.PI/2-Math.atan(p.B*x))+p.D, domain:()=>true, eq:(p)=>arcEq("arcctg",p),
+  },
+  { id:"circle", name:"Окружность", color:"#f43f5e",
+    params:{cx:0,cy:0,r:2},
+    paramDefs:[{key:"cx",label:"x\u2080",min:-6,max:6,step:0.1},{key:"cy",label:"y\u2080",min:-6,max:6,step:0.1},{key:"r",label:"r",min:0.1,max:8,step:0.1}],
+    fn:(x,p)=>NaN, domain:()=>false,
+    eq:(p)=>{const xs=Math.abs(p.cx)<0.001?"x":"(x"+shift(-p.cx)+")"; const ys=Math.abs(p.cy)<0.001?"y":"(y"+shift(-p.cy)+")"; return xs+sup(2)+" + "+ys+sup(2)+" = "+fmt(p.r)+sup(2);},
+  },
+  { id:"ellipse", name:"Эллипс", color:"#8b5cf6",
+    params:{cx:0,cy:0,a:3,b:2},
+    paramDefs:[{key:"cx",label:"x\u2080",min:-5,max:5,step:0.1},{key:"cy",label:"y\u2080",min:-5,max:5,step:0.1},{key:"a",label:"a",min:0.1,max:8,step:0.1},{key:"b",label:"b",min:0.1,max:8,step:0.1}],
+    fn:(x,p)=>NaN, domain:()=>false,
+    eq:(p)=>{const xs=Math.abs(p.cx)<0.001?"x":"(x"+shift(-p.cx)+")"; const ys=Math.abs(p.cy)<0.001?"y":"(y"+shift(-p.cy)+")"; return xs+sup(2)+"/"+fmt(p.a)+sup(2)+" + "+ys+sup(2)+"/"+fmt(p.b)+sup(2)+" = 1";},
+  },
+];
+
+
+function drawCurve(ctx, fn, params, toCanvasX, toCanvasY, toMathX, W, alpha=1, lineW=2.5, glow=14) {
+  const N=W*2;
+  ctx.save();
+  ctx.globalAlpha=alpha;
+  ctx.shadowColor=fn.color; ctx.shadowBlur=glow;
+  ctx.strokeStyle=fn.color; ctx.lineWidth=lineW;
+  ctx.beginPath();
+  let penDown=false, prevPy=null;
+  for(let i=0;i<=N;i++){
+    const px=(i/N)*W, mx=toMathX(px);
+    if(!fn.domain(mx,params)){if(penDown)ctx.stroke();ctx.beginPath();penDown=false;prevPy=null;continue;}
+    const my=fn.fn(mx,params);
+    if(!isFinite(my)||isNaN(my)){if(penDown)ctx.stroke();ctx.beginPath();penDown=false;prevPy=null;continue;}
+    const py=toCanvasY(my);
+    if(prevPy!==null&&Math.abs(py-prevPy)>DISC*20){ctx.stroke();ctx.beginPath();penDown=false;}
+    if(!penDown){ctx.moveTo(px,py);penDown=true;}else ctx.lineTo(px,py);
+    prevPy=py;
+  }
+  ctx.stroke(); ctx.shadowBlur=0; ctx.restore();
+}
+
+function drawGraph(canvas, fn, params, zoom, offset, layers, showDeriv, absMode, compareMode, compareParam, compareValue, lt) {
+  if(!canvas||!fn||!params||!Object.keys(params).length) return;
+  const ctx=canvas.getContext("2d");
+  const W=canvas.width, H=canvas.height;
+  ctx.clearRect(0,0,W,H);
+
+  const dark=!lt;
+  const COL={
+    bg:     dark?"#090e1c":"#f8fafc", grid:   dark?"rgba(255,255,255,0.04)":"rgba(0,0,0,0.06)", axis:   dark?"rgba(255,255,255,0.25)":"rgba(0,0,0,0.25)", arrow:  dark?"rgba(255,255,255,0.25)":"rgba(0,0,0,0.2)", label:  dark?"rgba(255,255,255,0.35)":"rgba(0,0,0,0.45)", axname: dark?"rgba(255,255,255,0.4)":"rgba(0,0,0,0.35)", };
+
+  ctx.fillStyle=COL.bg; ctx.fillRect(0,0,W,H);
+
+  const cx=W/2+offset.x, cy=H/2+offset.y;
+  const tX=(x)=>cx+x*zoom;
+  const tY=(y)=>cy-y*zoom;
+  const tMX=(px)=>(px-cx)/zoom;
+  const tMY=(py)=>-(py-cy)/zoom;
+
+  const TRIG_IDS=['sin','cos','tan','cot','arcsin','arccos','arctan','arccot'];
+  const usePiGrid = TRIG_IDS.includes(fn.id);
+
+  const step = usePiGrid
+    ? Math.PI / (zoom > 120 ? 2 : zoom > 50 ? 1 : zoom > 20 ? 2 : 4)
+    : Math.pow(10, Math.floor(Math.log10(3/(zoom/60))));
+  const piDenom = usePiGrid ? (zoom > 120 ? 2 : zoom > 50 ? 1 : zoom > 20 ? 2 : 4) : null;
+
+  const piLabel = (x) => {
+    const n = x / Math.PI;
+    const absN = Math.abs(n);
+    const sign = n < 0 ? '−' : '';
+    if (Math.abs(n) < 0.001) return '0';
+    if (piDenom === 2) {
+
+      const k = Math.round(n * 2);
+      if (k % 2 === 0) {
+        const m = k / 2;
+        if (Math.abs(m) === 1) return `${m < 0 ? '−' : ''}π`;
+        return `${m < 0 ? '−' : ''}${Math.abs(m)}π`;
+      }
+      if (Math.abs(k) === 1) return `${sign}π/2`;
+      return `${sign}${Math.abs(k)}π/2`;
+    }
+    if (Math.abs(absN - 1) < 0.001) return `${sign}π`;
+    return `${sign}${fmt(absN)}π`;
+  };
+
+  ctx.strokeStyle=COL.grid; ctx.lineWidth=1;
+  const x0=Math.floor(tMX(0)/step)*step;
+  for(let x=x0;x<=tMX(W)+step;x+=step){const px=tX(x);ctx.beginPath();ctx.moveTo(px,0);ctx.lineTo(px,H);ctx.stroke();}
+  const yMin=tMY(H), yMax=tMY(0);
+  const y0=Math.floor(yMin/step)*step;
+  for(let y=y0;y<=yMax+step;y+=step){const py=tY(y);ctx.beginPath();ctx.moveTo(0,py);ctx.lineTo(W,py);ctx.stroke();}
+
+  ctx.strokeStyle=COL.axis; ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.moveTo(0,cy);ctx.lineTo(W,cy);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(cx,0);ctx.lineTo(cx,H);ctx.stroke();
+
+  ctx.fillStyle=COL.label; ctx.font="10px 'Courier New'"; ctx.textAlign="center";
+  for(let x=Math.ceil(tMX(0)/step)*step;x<=tMX(W);x+=step){
+    if(Math.abs(x)<step*0.001)continue;
+    const px=tX(x);
+    const lbl=usePiGrid ? piLabel(x) : (Math.abs(x-Math.round(x))<0.001?String(Math.round(x)):x.toFixed(1));
+    ctx.fillText(lbl,px,Math.min(Math.max(cy+14,14),H-4));
+  }
+  ctx.textAlign="right";
+  for(let y=y0;y<=yMax;y+=step){
+    if(Math.abs(y)<step*0.001)continue;
+    const py=tY(y); if(py<4||py>H-4)continue;
+    const lbl=usePiGrid ? piLabel(y) : (Math.abs(y-Math.round(y))<0.001?String(Math.round(y)):y.toFixed(1));
+    ctx.fillText(lbl,Math.min(Math.max(cx-4,24),W-4),py+3);
+  }
+
+  ctx.fillStyle=COL.arrow;
+  ctx.beginPath();ctx.moveTo(W-6,cy);ctx.lineTo(W-14,cy-4);ctx.lineTo(W-14,cy+4);ctx.fill();
+  ctx.beginPath();ctx.moveTo(cx,6);ctx.lineTo(cx-4,14);ctx.lineTo(cx+4,14);ctx.fill();
+  ctx.font="italic 12px Georgia"; ctx.fillStyle=COL.axname;
+  ctx.textAlign="left"; ctx.fillText("x",W-4,cy-8);
+  ctx.textAlign="center"; ctx.fillText("y",cx+10,12);
+
+  const displayFn = absMode
+    ? {...fn, fn:(x,p)=>{const y=fn.fn(x,p); return isNaN(y)?y:Math.abs(y);}}
+    : fn;
+
+  layers.forEach(l=>drawSpecialOrCurve(ctx,l.fn,l.params,tX,tY,tMX,W,0.35,1.5,4));
+
+  {
+    const {verts,horizs}=getAsymptotes(fn,params,tMX(0),tMX(W));
+    ctx.save();
+    ctx.setLineDash([6,4]); ctx.lineWidth=1;
+    ctx.strokeStyle=fn.color+"99";
+    ctx.font="9px 'Courier New'";
+    verts.forEach(({x,label})=>{
+      const px=tX(x);
+      if(px<-4||px>W+4) return;
+      ctx.beginPath(); ctx.moveTo(px,0); ctx.lineTo(px,H); ctx.stroke();
+      const lw=label.length*5.4+8;
+      const bgCol=lt?"rgba(248,250,252,0.9)":"rgba(6,10,24,0.75)";
+      ctx.fillStyle=bgCol; ctx.fillRect(px+4,6,lw,14);
+      ctx.fillStyle=fn.color+"ee"; ctx.textAlign="left"; ctx.fillText(label,px+7,17);
+    });
+    horizs.forEach(({y,label})=>{
+      const py=tY(y);
+      if(py<-4||py>H+4) return;
+      ctx.beginPath(); ctx.moveTo(0,py); ctx.lineTo(W,py); ctx.stroke();
+      const lw=label.length*5.4+8;
+      const bgCol2=lt?"rgba(248,250,252,0.9)":"rgba(6,10,24,0.75)";
+      ctx.fillStyle=bgCol2; ctx.fillRect(W-lw-4,py-14,lw,14);
+      ctx.fillStyle=fn.color+"ee"; ctx.textAlign="right"; ctx.fillText(label,W-6,py-4);
+      ctx.textAlign="left";
+    });
+    ctx.restore();
+  }
+
+  function drawSpecialOrCurve(ctx2, fnObj, p, tcX, tcY, toMX, W2, alpha=1, lw=2.5, glow=14) {
+    if(fnObj.id==='circle'){
+      ctx2.save(); ctx2.globalAlpha=alpha;
+      ctx2.shadowColor=fnObj.color; ctx2.shadowBlur=glow;
+      ctx2.strokeStyle=fnObj.color; ctx2.lineWidth=lw;
+      const {cx:pcx=0,cy:pcy=0,r=2}=p;
+      const pxC=tcX(pcx), pyC=tcY(pcy), rPx=Math.abs(tcX(pcx+r)-pxC);
+      ctx2.beginPath(); ctx2.arc(pxC,pyC,rPx,0,Math.PI*2); ctx2.stroke();
+      ctx2.shadowBlur=4; ctx2.fillStyle=fnObj.color+'99';
+      ctx2.beginPath(); ctx2.arc(pxC,pyC,3,0,Math.PI*2); ctx2.fill();
+      ctx2.shadowBlur=0; ctx2.restore();
+    } else if(fnObj.id==='ellipse'){
+      ctx2.save(); ctx2.globalAlpha=alpha;
+      ctx2.shadowColor=fnObj.color; ctx2.shadowBlur=glow;
+      ctx2.strokeStyle=fnObj.color; ctx2.lineWidth=lw;
+      const {cx:pcx=0,cy:pcy=0,a=3,b=2}=p;
+      const pxC=tcX(pcx), pyC=tcY(pcy);
+      const rX=Math.abs(tcX(pcx+a)-pxC), rY=Math.abs(tcY(pcy+b)-pyC);
+      ctx2.beginPath(); ctx2.ellipse(pxC,pyC,rX,rY,0,0,Math.PI*2); ctx2.stroke();
+      ctx2.shadowBlur=4; ctx2.fillStyle=fnObj.color+'99';
+      ctx2.beginPath(); ctx2.arc(pxC,pyC,3,0,Math.PI*2); ctx2.fill();
+      if(Math.abs(a-b)>0.05){
+        const c=Math.sqrt(Math.max(a,b)**2-Math.min(a,b)**2);
+        const f1x=a>b?tcX(pcx+c):pxC, f1y=a>b?pyC:tcY(pcy+c);
+        const f2x=a>b?tcX(pcx-c):pxC, f2y=a>b?pyC:tcY(pcy-c);
+        ctx2.shadowBlur=0; ctx2.fillStyle=fnObj.color+'cc';
+        ctx2.beginPath(); ctx2.arc(f1x,f1y,3,0,Math.PI*2); ctx2.fill();
+        ctx2.beginPath(); ctx2.arc(f2x,f2y,3,0,Math.PI*2); ctx2.fill();
+      }
+      ctx2.shadowBlur=0; ctx2.restore();
+    } else {
+      drawCurve(ctx2,fnObj,p,tcX,tcY,toMX,W2,alpha,lw,glow);
+    }
+  }
+
+  drawSpecialOrCurve(ctx,displayFn,params,tX,tY,tMX,W,1,2.5,14);
+
+  if(compareMode && compareParam){
+    const cParams={...params,[compareParam]:compareValue};
+    const cDisplayFn = absMode
+      ? {...fn, color:"#facc15", fn:(x,p)=>{const y=fn.fn(x,p); return isNaN(y)?y:Math.abs(y);}}
+      : {...fn, color:"#facc15"};
+    drawSpecialOrCurve(ctx,cDisplayFn,cParams,tX,tY,tMX,W,0.85,2,10);
+
+    ctx.save();
+    ctx.font="10px 'Courier New'";
+
+    ctx.fillStyle=fn.color; ctx.textAlign="left";
+    ctx.fillText(`f(x): ${compareParam}=${fmt(params[compareParam]??0)}`,14,H-81);
+    ctx.fillStyle="#facc15";
+    ctx.fillText(`g(x): ${compareParam}=${fmt(compareValue)}`,14,H-67);
+    ctx.restore();
+  }
+
+  if(showDeriv){
+    const h=1e-5;
+    const derivFn={
+      ...displayFn, color:"#a3e635", fn:(x,p)=>{
+        const y1=displayFn.fn(x-h,p), y2=displayFn.fn(x+h,p);
+        return (y2-y1)/(2*h);
+      }, domain:(x,p)=>displayFn.domain(x,p)&&displayFn.domain(x-h,p)&&displayFn.domain(x+h,p), };
+    ctx.save(); ctx.setLineDash([4,3]);
+    drawCurve(ctx,derivFn,params,tX,tY,tMX,W,0.9,1.8,8);
+    ctx.restore();
+  }
+}
+
+function MathSpan({html,style}){
+  return <span dangerouslySetInnerHTML={{__html:html}} style={{fontFamily:"Georgia,serif",...style}}/>;
+}
+
+const CATEGORIES=[
+  {label:"Степенные функции",ids:["linear_prop","linear","inv_prop","quadratic","cubic","nroot"]}, {label:"Показат. / логарифм.",ids:["exp","log"]}, {label:"Тригонометрические",ids:["sin","cos","tan","cot"]}, {label:"Обратные тригон.",ids:["arcsin","arccos","arctan","arccot"]}, {label:"Кривые",ids:["circle","ellipse"]},
+];
+
+const LAYER_COLORS=["#facc15","#4ade80","#f472b6","#38bdf8","#fb923c","#a78bfa"];
+
+export default function App(){
+  const canvasRef=useRef(null);
+  const containerRef=useRef(null);
+
+  const initFromUrl=()=>{
+    try{
+      const h=window.location.hash.slice(1);
+      if(!h) return null;
+      return JSON.parse(decodeURIComponent(h));
+    }catch{return null;}
+  };
+  const urlState=initFromUrl();
+
+  const [selectedId,setSelectedId]=useState(urlState?.id??"linear");
+  const [params,setParams]=useState(()=>{
+    const f=FUNCTIONS.find(f=>f.id===(urlState?.id??"linear"));
+    return urlState?.params?{...f.params,...urlState.params}:{...f.params};
+  });
+  const [zoom,setZoom]=useState(urlState?.zoom??55);
+  const [offset,setOffset]=useState(urlState?.offset??{x:0,y:0});
+  const [dragging,setDragging]=useState(null);
+  const [layers,setLayers]=useState([]);
+  const [showDeriv,setShowDeriv]=useState(false);
+  const [absMode,setAbsMode]=useState(false);
+  const [compareMode,setCompareMode]=useState(false);
+  const [compareParam,setCompareParam]=useState(null);
+  const [compareValue,setCompareValue]=useState(0);
+
+  const [animParam,setAnimParam]=useState(null);
+  const [animRunning,setAnimRunning]=useState(false);
+  const [animSpeed,setAnimSpeed]=useState(0.5);
+  const [copyMsg,setCopyMsg]=useState(false);
+  const [lightTheme,setLightTheme]=useState(false);
+  const [activeTab,setActiveTab]=useState("graph");
+  const animDirRef=useRef(1);
+  const animIntervalRef=useRef(null);
+
+  const fn=FUNCTIONS.find(f=>f.id===selectedId);
+
+  const stopAnim=useCallback(()=>{
+    if(animIntervalRef.current) clearInterval(animIntervalRef.current);
+    setAnimRunning(false);
+  },[]);
+
+  const handleSelect=(id)=>{
+    stopAnim();
+    const f=FUNCTIONS.find(f=>f.id===id);
+    setSelectedId(id); setParams({...f.params}); setAnimParam(null);
+    setAbsMode(false); setShowDeriv(false); setCompareMode(false); setCompareParam(null);
+      };
+
+  const baseZoomRef=useRef(55);
+  const SPLIT_RATIO=0.52;
+
+  const fitAndDraw=useCallback(()=>{
+    const canvas=canvasRef.current, container=containerRef.current;
+    if(!canvas||!container||container.clientHeight===0) return;
+    canvas.width=container.clientWidth;
+    canvas.height=container.clientHeight;
+
+    const fn=FUNCTIONS.find(f=>f.id===selectedId);
+    drawGraph(canvas,fn,params,zoom,offset,layers,showDeriv,absMode,compareMode,compareParam,compareValue,lightTheme);
+
+  },[selectedId,params,zoom,offset,layers,showDeriv,absMode,compareMode,compareParam,compareValue,lightTheme]);
+
+  const fitCanvas=useCallback(()=>{
+    const canvas=canvasRef.current, container=containerRef.current;
+    if(!canvas||!container) return;
+    canvas.width=container.clientWidth;
+    canvas.height=container.clientHeight;
+  },[]);
+
+  useEffect(()=>{
+    const container=containerRef.current;
+    if(!container) return;
+    const ro=new ResizeObserver(()=>fitAndDraw());
+    ro.observe(container);
+    return ()=>ro.disconnect();
+  },[fitAndDraw]);
+
+  useEffect(()=>{
+    const isSplit=["params","layers","compare"].includes(activeTab);
+    const isFullGraph=activeTab==="graph";
+    if(isFullGraph){
+      setZoom(baseZoomRef.current);
+    } else if(isSplit){
+      setZoom(parseFloat((baseZoomRef.current*SPLIT_RATIO).toFixed(2)));
+    }
+  },[activeTab]);
+
+  useEffect(()=>{
+    if(activeTab==="graph") baseZoomRef.current=zoom;
+  },[zoom,activeTab]);
+
+  useEffect(()=>{
+    window.addEventListener("resize",fitAndDraw);
+    return()=>window.removeEventListener("resize",fitAndDraw);
+  },[fitAndDraw]);
+  useEffect(()=>{drawGraph(canvasRef.current,fn,params,zoom,offset,layers,showDeriv,absMode,compareMode,compareParam,compareValue,lightTheme);},[fn,params,zoom,offset,layers,showDeriv,absMode,compareMode,compareParam,compareValue,lightTheme]);
+  useEffect(()=>{return()=>stopAnim();},[stopAnim]);
+
+  const shareUrl=()=>{
+    const state={id:selectedId,params,zoom,offset};
+    const hash=encodeURIComponent(JSON.stringify(state));
+    const url=`${window.location.origin}${window.location.pathname}#${hash}`;
+    navigator.clipboard.writeText(url).then(()=>{setCopyMsg(true);setTimeout(()=>setCopyMsg(false),2000);});
+  };
+
+  const toggleAnim=()=>{
+    if(animRunning){stopAnim();return;}
+    if(!animParam) return;
+    const pd=fn.paramDefs.find(p=>p.key===animParam);
+    if(!pd) return;
+    animDirRef.current=1;
+    setAnimRunning(true);
+    animIntervalRef.current=setInterval(()=>{
+      setParams(prev=>{
+        const cur=prev[animParam]??pd.min;
+        let val=cur+animDirRef.current*animSpeed*(pd.step||0.1)*0.8;
+        if(val>=pd.max){val=pd.max;animDirRef.current=-1;}
+        if(val<=pd.min){val=pd.min;animDirRef.current=1;}
+        return {...prev,[animParam]:parseFloat(val.toFixed(4))};
+      });
+    },40);
+  };
+
+  const addLayer=()=>{
+    if(layers.length>=6) return;
+    const color=LAYER_COLORS[layers.length];
+    setLayers(l=>[...l,{fn:{...fn,color},params:{...params},id:Date.now(),label:`${fn.name}`,color}]);
+  };
+  const removeLayer=(id)=>setLayers(l=>l.filter(x=>x.id!==id));
+
+  const handlePointerDown=(e)=>{const t=e.touches?e.touches[0]:e;setDragging({sx:t.clientX,sy:t.clientY,ox:offset.x,oy:offset.y});};
+  const handlePointerMove=(e)=>{if(!dragging)return;const t=e.touches?e.touches[0]:e;setOffset({x:dragging.ox+t.clientX-dragging.sx,y:dragging.oy+t.clientY-dragging.sy});};
+  const handlePointerUp=()=>setDragging(null);
+  const handleWheel=(e)=>{e.preventDefault();setZoom(z=>Math.max(10,Math.min(300,z*(e.deltaY<0?1.1:0.9))));};
+
+  const T = lightTheme
+    ? {bg:"#f8fafc", bg2:"#f1f5f9", border:"rgba(0,0,0,0.08)", text:"#1e293b", muted:"#64748b", faint:"rgba(0,0,0,0.04)", axisc:"rgba(0,0,0,0.2)", gridc:"rgba(0,0,0,0.06)", labelc:"rgba(0,0,0,0.45)"}
+    : {bg:"#090e1c", bg2:"#0b1220", border:"rgba(255,255,255,0.06)", text:"#e2e8f0", muted:"#475569", faint:"rgba(255,255,255,0.04)", axisc:"rgba(255,255,255,0.25)", gridc:"rgba(255,255,255,0.04)", labelc:"rgba(255,255,255,0.35)"};
+  const Tm=T.muted, Tb=T.border;
+  const S={
+    hdr:{fontSize:9,letterSpacing:1,textTransform:"uppercase"},
+    tab:(t)=>({flex:1,overflowY:"auto",padding:"10px 14px",borderTop:`1px solid ${t.border}`}),
+  };
+
+  const [showExport,setShowExport]=useState(false);
+
+  const doExport=(fmt)=>{
+    setShowExport(false);
+    const canvas=canvasRef.current; if(!canvas) return;
+    const oc=document.createElement("canvas");
+    oc.width=canvas.width; oc.height=canvas.height+52;
+    const c=oc.getContext("2d");
+    c.fillStyle=lightTheme?"#f8fafc":"#090e1c"; c.fillRect(0,0,oc.width,oc.height);
+    c.drawImage(canvas,0,0);
+    const sy=canvas.height;
+    c.fillStyle=lightTheme?"#f1f5f9":"#0b1220"; c.fillRect(0,sy,oc.width,52);
+    c.fillStyle=lightTheme?"rgba(0,0,0,0.08)":"rgba(255,255,255,0.08)"; c.fillRect(0,sy,oc.width,1);
+    const strip=(s)=>(s||"").replace(/<[^>]+>/g,"").replace(/&minus;/g,"−").replace(/&middot;/g,"·").replace(/&radic;/g,"√").replace(/&[^;]+;/g,"");
+    c.font="11px 'Courier New',monospace"; c.fillStyle=lightTheme?"#64748b":"#475569"; c.textAlign="left";
+    c.fillText(fn?.name?.toUpperCase()||"",16,sy+18);
+    c.font="bold 17px 'Courier New',monospace"; c.fillStyle=fn?.color||"#fff";
+    c.fillText(strip(eqHtml),16,sy+40);
+    if(layers.length>0){
+      c.font="11px 'Courier New',monospace"; c.textAlign="right";
+      layers.forEach((l,i)=>{c.fillStyle=l.color; c.fillText(strip(l.fn.eq(l.params)),oc.width-16,sy+16+i*14);});
+    }
+    const a=document.createElement("a");
+    if(fmt==='svg'){
+      const W=oc.width, H=oc.height;
+      const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}"><image href="${oc.toDataURL('image/png')}" width="${W}" height="${H}"/></svg>`;
+      a.href=URL.createObjectURL(new Blob([svg],{type:"image/svg+xml"})); a.download="graph.svg";
+    } else {
+      a.href=oc.toDataURL(fmt==='jpg'?"image/jpeg":"image/"+fmt, 0.92); a.download="graph."+fmt;
+    }
+    a.click();
+  };
+
+  const rawEq=fn&&Object.keys(params).length>0?fn.eq(params):"";
+  // absMode wraps only the RHS: "y = |f(x)|"
+  const eqHtml=absMode&&rawEq?rawEq.replace(/^y = /,`y = |`)+`|`:rawEq;
+
+  const BS={padding:"4px 10px",borderRadius:6,fontSize:11,cursor:"pointer",fontFamily:"inherit",border:"1px solid rgba(255,255,255,0.1)",background:"rgba(255,255,255,0.04)",color:"#64748b",transition:"all 0.12s"};
+
+  const NAV=[
+    {id:"graph", icon:"◈", label:"График"}, {id:"funcs", icon:"ƒ", label:"Функции"}, {id:"params", icon:"⚙", label:"Параметры"}, {id:"layers", icon:"⧉", label:"Слои"}, {id:"compare", icon:"⇄", label:"Сравнение"}, ];
+
+  return(
+    <div style={{display:"flex",flexDirection:"column",height:"100vh",background:T.bg,color:T.text,fontFamily:"'Courier New',monospace",overflow:"hidden"}}>
+
+      <div style={{padding:"6px 14px",background:T.bg2,borderBottom:`1px solid ${Tb}`,display:"flex",alignItems:"center",gap:8,flexShrink:0,minHeight:44}}>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{fontSize:9,color:Tm,letterSpacing:1.5,textTransform:"uppercase"}}>{fn?.name}</div>
+          <div style={{fontSize:14,color:fn?.color,fontWeight:700,marginTop:1,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}><MathSpan html={eqHtml}/></div>
+        </div>
+        <button onClick={()=>setLightTheme(v=>!v)} title="Тема"
+          style={{...BS,padding:"3px 7px",fontSize:14,borderColor:"rgba(128,128,128,0.2)",color:Tm,background:"transparent"}}>
+          {lightTheme?"🌙":"☀️"}
+        </button>
+        <button onClick={()=>setAbsMode(v=>!v)} style={{...BS,padding:"3px 7px",fontFamily:"Georgia,serif",fontSize:12,borderColor:absMode?fn?.color:Tb,color:absMode?fn?.color:Tm,background:absMode?`${fn?.color}15`:"transparent"}}>|y|</button>
+        <button onClick={()=>setShowDeriv(v=>!v)} style={{...BS,padding:"3px 7px",fontSize:12,borderColor:showDeriv?"#a3e635":Tb,color:showDeriv?"#a3e635":T.muted,background:showDeriv?"#a3e63515":"transparent"}}>y'</button>
+      </div>
+
+      <div style={{flex:1,position:"relative",overflow:"hidden",display:"flex",flexDirection:"column"}}>
+
+        {/* Graph — full screen on "graph" tab, top portion on params/layers/compare, hidden otherwise */}
+        <div ref={containerRef}
+          style={{
+            position: activeTab==="graph" ? "absolute" : "relative", inset: activeTab==="graph" ? 0 : "auto", height: ["params","layers","compare"].includes(activeTab) ? "52%" : activeTab==="graph" ? "100%" : 0, flexShrink: 0, overflow: "hidden", cursor: dragging?"grabbing":"crosshair", opacity: (activeTab==="graph"||["params","layers","compare"].includes(activeTab)) ? 1 : 0, pointerEvents: (activeTab==="graph"||["params","layers","compare"].includes(activeTab)) ? "auto" : "none", transition: "height 0.2s", }}
+          onMouseDown={handlePointerDown} onMouseMove={handlePointerMove} onMouseUp={handlePointerUp} onMouseLeave={handlePointerUp}
+          onTouchStart={handlePointerDown} onTouchMove={handlePointerMove} onTouchEnd={handlePointerUp} onWheel={handleWheel}>
+          <canvas ref={canvasRef} style={{width:"100%",height:"100%",display:"block"}}/>
+          {activeTab==="graph"&&(
+            <div style={{position:"absolute",bottom:10,right:12,display:"flex",gap:6}}>
+              {[["＋",()=>setZoom(z=>Math.min(300,z*1.2))],["－",()=>setZoom(z=>Math.max(10,z*0.8))],["⌂",()=>{setOffset({x:0,y:0});setZoom(55);}]]
+                .map(([lbl,cb])=>(<button key={lbl} onClick={cb} style={{width:36,height:36,borderRadius:10,background:lightTheme?"rgba(255,255,255,0.85)":"rgba(0,0,0,0.65)",border:`1px solid ${Tb}`,color:Tm,fontSize:16,cursor:"pointer",fontFamily:"inherit"}}>{lbl}</button>))}
+              {/* Export button + popup */}
+              <div style={{position:"relative"}}>
+                <button onClick={()=>setShowExport(v=>!v)} style={{width:36,height:36,borderRadius:10,background:lightTheme?"rgba(255,255,255,0.85)":"rgba(0,0,0,0.65)",border:`1px solid ${showExport?fn?.color:Tb}`,color:showExport?fn?.color:Tm,fontSize:15,cursor:"pointer",fontFamily:"inherit"}}>↓</button>
+                {showExport&&(
+                  <div style={{position:"absolute",bottom:42,right:0,background:T.bg2,border:`1px solid ${Tb}`,borderRadius:10,padding:"6px",display:"flex",flexDirection:"column",gap:4,minWidth:90,zIndex:99,boxShadow:"0 4px 20px rgba(0,0,0,0.3)"}}>
+                    {[["PNG","png"],["JPEG","jpg"],["WebP","webp"],["SVG","svg"]].map(([lbl,fmt])=>(
+                      <button key={fmt} onClick={()=>doExport(fmt)} style={{padding:"7px 12px",borderRadius:6,background:"transparent",border:`1px solid ${Tb}`,color:Tm,fontSize:12,cursor:"pointer",fontFamily:"inherit",textAlign:"left",transition:"all 0.1s"}}
+                        onMouseEnter={e=>{e.target.style.color=fn?.color;e.target.style.borderColor=fn?.color;}}
+                        onMouseLeave={e=>{e.target.style.color=T.muted;e.target.style.borderColor=Tb;}}>
+                        {lbl}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {activeTab==="funcs"&&(
+          <div style={{position:"absolute",inset:0,overflowY:"auto",background:T.bg,padding:"12px 14px"}}>
+            {CATEGORIES.map(cat=>(
+              <div key={cat.label} style={{marginBottom:18}}>
+                <div style={{fontSize:9,letterSpacing:2,color:Tm,textTransform:"uppercase",marginBottom:8,paddingBottom:4,borderBottom:"1px solid rgba(255,255,255,0.04)"}}>{cat.label}</div>
+                <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                  {cat.ids.map(id=>{
+                    const f=FUNCTIONS.find(ff=>ff.id===id);
+                    const active=selectedId===id;
+                    return(
+                      <button key={id} onClick={()=>{handleSelect(id);setActiveTab("params");}}
+                        style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",borderRadius:8,cursor:"pointer",fontFamily:"inherit",textAlign:"left",border:active?`1.5px solid ${f.color}30`:active?`1.5px solid ${f.color}30`:`1px solid ${Tb}`,background:active?`${f.color}12`:T.faint}}>
+                        <div style={{width:10,height:10,borderRadius:"50%",background:f.color,boxShadow:active?`0 0 8px ${f.color}`:"none",flexShrink:0}}/>
+                        <div style={{flex:1}}>
+                          <div style={{fontSize:13,color:active?f.color:Tm,fontWeight:active?700:400}}>{f.name}</div>
+                          <div style={{fontSize:10,color:Tm,marginTop:1}}><MathSpan html={GEN[f.id]||f.eq(f.params)}/></div>
+                        </div>
+                        {active&&<div style={{fontSize:10,color:f.color}}>●</div>}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {activeTab==="params"&&(
+          <div style={{...S.tab(T),background:T.bg}}>
+            <div style={{display:"flex",gap:8,marginBottom:14}}>
+              <button onClick={()=>{stopAnim();setParams({...fn.params});}} style={{...BS,flex:1,padding:"8px",textAlign:"center",color:"#64748b",fontSize:12}}>↺ Сбросить</button>
+              <button onClick={shareUrl} style={{...BS,flex:1,padding:"8px",textAlign:"center",fontSize:12,color:copyMsg?"#a3e635":"#64748b",borderColor:copyMsg?"#a3e63560":"rgba(255,255,255,0.1)"}}>{copyMsg?"✓ Скопировано":"⎘ Поделиться"}</button>
+            </div>
+            {fn?.paramDefs.map(pd=>{
+              const val=params[pd.key]??pd.min;
+              return(
+                <div key={pd.key} style={{marginBottom:16}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
+                    <span style={{fontSize:12,color:Tm}}>{pd.label}</span>
+                    <input type="number" step={pd.step} min={pd.min} max={pd.max} value={val}
+                      onChange={e=>{const v=parseFloat(e.target.value);if(isFinite(v))setParams(p=>({...p,[pd.key]:Math.max(pd.min,Math.min(pd.max,v))}));}}
+                      style={{width:58,background:T.bg2,border:`1px solid ${fn.color}50`,borderRadius:5,padding:"3px 6px",fontSize:16,color:fn.color,fontWeight:700,fontFamily:"inherit",textAlign:"right"}}/>
+                  </div>
+                  <input type="range" min={pd.min} max={pd.max} step={pd.step} value={val}
+                    onChange={e=>setParams(p=>({...p,[pd.key]:parseFloat(e.target.value)}))}
+                    style={{width:"100%",accentColor:fn.color,cursor:"pointer",margin:0}}/>
+                  <div style={{display:"flex",justifyContent:"space-between",fontSize:9,color:Tm+"66",marginTop:2}}><span>{pd.min}</span><span>{pd.max}</span></div>
+                </div>
+              );
+            })}
+            <div style={{padding:"10px 12px",background:T.faint,border:`1px solid ${Tb}`,borderRadius:10,marginTop:4}}>
+              <div style={{...S.hdr,color:Tm,marginBottom:8}}>АНИМАЦИЯ</div>              <select value={animParam||""} onChange={e=>{stopAnim();setAnimParam(e.target.value||null);}}
+                style={{width:"100%",background:T.bg2,color:Tm,border:`1px solid ${Tb}`,borderRadius:6,padding:"6px 8px",fontSize:12,fontFamily:"inherit",marginBottom:8}}>
+                <option value="">— выбери параметр —</option>
+                {fn?.paramDefs.map(pd=><option key={pd.key} value={pd.key}>{pd.key} — {pd.label}</option>)}
+              </select>
+              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+                <span style={{fontSize:11,color:Tm,whiteSpace:"nowrap"}}>Скорость</span>
+                <input type="range" min={0.05} max={2} step={0.05} value={animSpeed} onChange={e=>setAnimSpeed(parseFloat(e.target.value))} style={{flex:1,accentColor:"#475569"}}/>
+                <span style={{fontSize:11,color:"#475569",minWidth:28}}>{animSpeed.toFixed(1)}×</span>
+              </div>
+              <button onClick={toggleAnim} disabled={!animParam}
+                style={{width:"100%",padding:"8px",borderRadius:7,cursor:animParam?"pointer":"not-allowed",fontFamily:"inherit",fontSize:13, background:animRunning?`${fn?.color}20`:"rgba(255,255,255,0.04)", border:`1px solid ${animRunning?fn?.color:"rgba(255,255,255,0.08)"}`, color:animRunning?fn?.color:"#475569"}}>
+                {animRunning?"⏹ Остановить":"▶ Запустить анимацию"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {activeTab==="layers"&&(
+          <div style={{...S.tab(T),background:T.bg}}>
+            <div style={{...S.hdr,color:Tm,marginBottom:10}}>НАЛОЖЕНИЕ ФУНКЦИЙ</div>
+            <button onClick={addLayer} disabled={layers.length>=6}
+              style={{...BS,width:"100%",padding:"10px",marginBottom:12,textAlign:"center",fontSize:12,color:fn?.color,borderColor:`${fn?.color}40`,background:`${fn?.color}08`}}>
+              + Зафиксировать текущий график
+            </button>
+            {layers.length===0&&(<div style={{fontSize:12,color:Tm,textAlign:"center",padding:"24px 0",lineHeight:1.7}}>Нет зафиксированных графиков.<br/>Настрой функцию и нажми кнопку выше.</div>)}
+            {layers.map(l=>(
+              <div key={l.id} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 10px",background:T.faint,border:`1px solid ${l.color}25`,borderRadius:8,marginBottom:8}}>
+                <div style={{width:12,height:12,borderRadius:"50%",background:l.color,boxShadow:`0 0 6px ${l.color}`,flexShrink:0}}/>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:12,color:l.color,fontWeight:600}}>{l.label}</div>
+                  <div style={{fontSize:9,color:"#334155",marginTop:2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{Object.entries(l.params).map(([k,v])=>`${k}=${fmt(v)}`).join("  ")}</div>
+                </div>
+                <button onClick={()=>removeLayer(l.id)} style={{...BS,padding:"3px 8px",fontSize:14,color:"#ef4444",borderColor:"rgba(239,68,68,0.15)"}}>×</button>
+              </div>
+            ))}
+            {layers.length>0&&(<button onClick={()=>setLayers([])} style={{...BS,width:"100%",marginTop:4,padding:"8px",textAlign:"center",color:"#475569"}}>Очистить все</button>)}
+          </div>
+        )}
+
+        {activeTab==="compare"&&(
+          <div style={{...S.tab(T),background:T.bg}}>
+            <div style={{...S.hdr,color:Tm,marginBottom:10}}>РЕЖИМ СРАВНЕНИЯ</div>
+            <button onClick={()=>setCompareMode(v=>!v)}
+              style={{...BS,width:"100%",padding:"10px",marginBottom:12,textAlign:"center",fontSize:13, color:compareMode?"#facc15":"#475569",borderColor:compareMode?"#facc1560":"rgba(255,255,255,0.08)",background:compareMode?"rgba(250,204,21,0.06)":"transparent"}}>
+              {compareMode?"● Сравнение включено":"○ Включить сравнение"}
+            </button>
+            <div style={{marginBottom:12}}>
+              <div style={{fontSize:10,color:Tm,marginBottom:6}}>Параметр для сравнения</div>
+              <select value={compareParam||""} onChange={e=>{setCompareParam(e.target.value||null);const pd=fn.paramDefs.find(p=>p.key===e.target.value);if(pd)setCompareValue(pd.min+(pd.max-pd.min)*0.7);}}
+                style={{width:"100%",background:T.bg2,color:Tm,border:`1px solid ${Tb}`,borderRadius:6,padding:"7px 8px",fontSize:12,fontFamily:"inherit"}}>
+                <option value="">— выбери параметр —</option>
+                {fn?.paramDefs.map(pd=><option key={pd.key} value={pd.key}>{pd.key} — {pd.label}</option>)}
+              </select>
+            </div>
+            {compareParam&&(()=>{
+              const pd=fn.paramDefs.find(p=>p.key===compareParam);
+              if(!pd) return null;
+              return(
+                <div style={{marginBottom:12}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:5}}>
+                    <span style={{fontSize:12,color:"#facc15"}}>g(x): {compareParam} =</span>
+                    <input type="number" step={pd.step} min={pd.min} max={pd.max} value={compareValue}
+                      onChange={e=>{const v=parseFloat(e.target.value);if(isFinite(v))setCompareValue(Math.max(pd.min,Math.min(pd.max,v)));}}
+                      style={{width:58,background:T.bg2,border:"1px solid #facc1540",borderRadius:5,padding:"3px 6px",fontSize:16,color:"#facc15",fontWeight:700,fontFamily:"inherit",textAlign:"right"}}/>
+                  </div>
+                  <input type="range" min={pd.min} max={pd.max} step={pd.step} value={compareValue}
+                    onChange={e=>setCompareValue(parseFloat(e.target.value))}
+                    style={{width:"100%",accentColor:"#facc15",cursor:"pointer",margin:0}}/>
+                  <div style={{display:"flex",justifyContent:"space-between",fontSize:9,color:"#1e2d45",marginTop:2}}><span>{pd.min}</span><span>{pd.max}</span></div>
+                </div>
+              );
+            })()}
+            {compareParam&&compareMode&&(
+              <div style={{padding:"10px 12px",background:T.faint,border:`1px solid ${Tb}`,borderRadius:10}}>
+                <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:7}}>
+                  <div style={{width:20,height:3,background:fn?.color,borderRadius:2}}/>
+                  <span style={{fontSize:12,color:fn?.color}}>f(x): {compareParam} = {fmt(params[compareParam]??0)}</span>
+                </div>
+                <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:7}}>
+                  <div style={{width:20,height:3,background:"#facc15",borderRadius:2}}/>
+                  <span style={{fontSize:12,color:"#facc15"}}>g(x): {compareParam} = {fmt(compareValue)}</span>
+                </div>
+                <div style={{fontSize:11,color:Tm,paddingTop:6,borderTop:`1px solid ${Tb}`}}>Δ{compareParam} = {fmt(compareValue-(params[compareParam]??0))}</div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      <div style={{display:"flex",background:T.bg2,borderTop:`1px solid ${Tb}`,flexShrink:0}}>
+        {NAV.map(tab=>{
+          const active=activeTab===tab.id;
+          return(
+            <button key={tab.id} onClick={()=>setActiveTab(tab.id)}
+              style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center", padding:"8px 2px",gap:3,cursor:"pointer",fontFamily:"inherit", border:"none",background:"transparent", borderTop:active?`2px solid ${fn?.color}`:"2px solid transparent", color:active?fn?.color:Tm,transition:"all 0.12s"}}>
+              <span style={{fontSize:16,lineHeight:1}}>{tab.icon}</span>
+              <span style={{fontSize:9,letterSpacing:0.3}}>{tab.label}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
