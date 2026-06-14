@@ -59,34 +59,7 @@
     width: 100%;
   }
 
-  @media (min-width: 768px) {
-    .layout {
-      flex-direction: row;
-      align-items: flex-start;
-      justify-content: center;
-      gap: 24px;
-    }
-    .layout .canvas-wrapper { flex-shrink: 0; }
 
-    .right-panel {
-      flex: 1;
-      align-items: stretch;
-      gap: 16px;
-    }
-
-    /* Кнопки в колонку, растянуты на всю ширину */
-    .controls {
-      flex-direction: column;
-      align-items: stretch;
-      width: 100%;
-    }
-    .controls .btn {
-      width: 100%;
-      text-align: left;
-    }
-
-    .stats { max-width: 100%; }
-  }
 
   /* ── Канвас ── */
   .canvas-wrapper {
@@ -159,45 +132,55 @@
   /* ── Панель значений ── */
   .stats {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 10px;
     margin-top: 16px;
     width: 100%;
     max-width: 500px;
   }
-  .stat-col { display: flex; flex-direction: column; gap: 8px; }
+  .stat-col {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
+  }
   .stat {
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 14px;
-    padding: 16px 18px;
+    padding: 16px 10px;
     text-align: center;
-    flex: 1;
-    height: 80px;        /* жёсткая высота — не растягивается */
+    /* Жёстко фиксируем размер ячейки — не зависит от содержимого */
+    height: 80px;
     min-height: 80px;
     max-height: 80px;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
     display: flex;
     flex-direction: column;
     justify-content: center;
     overflow: hidden;
   }
   .stat-label {
-    font-size: 0.68rem;
+    font-size: 0.62rem;
     color: var(--dim);
-    letter-spacing: 0.1em;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
     margin-bottom: 6px;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
     flex-shrink: 0;
   }
   .stat-value {
-    font-size: clamp(0.7rem, 1.8vw, 1.1rem); /* уменьшается при длинном тексте */
+    font-size: 1rem;
     font-weight: 600;
     color: #e8ecf8;
     white-space: nowrap;
     overflow: hidden;
-    text-overflow: ellipsis;
     line-height: 1.2;
+    /* font-size подстраивается в JS под ширину ячейки (fitCellValue) */
   }
   .stat.angle .stat-value { color: var(--accent); }
   .stat.rad   .stat-value { color: #a0b0cc; }
@@ -205,6 +188,45 @@
   .stat.cos   .stat-value { color: var(--cos); }
   .stat.tan   .stat-value { color: var(--tan); }
   .stat.cot   .stat-value { color: var(--cot); }
+  @media (min-width: 768px) {
+    .layout {
+      flex-direction: row;
+      align-items: flex-start;
+      justify-content: center;
+      gap: 24px;
+    }
+    .layout .canvas-wrapper { flex-shrink: 0; }
+
+    /* Правая панель: гибкая ширина в комфортном диапазоне.
+       Автоподбор шрифта (fitCellValues) гарантирует, что значения влезут. */
+    .right-panel {
+      flex: 0 1 320px;
+      min-width: 260px;
+      max-width: 360px;
+      align-items: stretch;
+      gap: 16px;
+    }
+
+    /* На десктопе все 6 ячеек в 2 колонки — каждая шире, метки влезают.
+       display:contents растворяет обёртки stat-col, и ячейки попадают
+       прямо в grid панели. */
+    .stats {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      max-width: 100%;
+    }
+    .stat-col { display: contents; }
+
+    /* Кнопки в колонку, растянуты на всю ширину */
+    .controls {
+      flex-direction: column;
+      align-items: stretch;
+      width: 100%;
+    }
+    .controls .btn {
+      width: 100%;
+      text-align: left;
+    }
+  }
 </style>
 </head>
 <body>
@@ -376,16 +398,15 @@ function fmt(value, fnName, specialLabel) {
 }
 
 // Форматирует угол в радианах для панели значений.
-// При многократных оборотах добавляет суффикс ±n·2π.
+// При многократных оборотах добавляет компактный суффикс ±n·2π.
 function radLabel(a) {
-  const norm    = normalizeAngle(a);
-  const base    = findSpecial(a) || norm.toFixed(3);
+  const norm = normalizeAngle(a);
+  const base = findSpecial(a) || norm.toFixed(2); // 2 знака — компактнее
   if (lvl === 0) return base;
-  if (lvl  > 0)  return base + ' + ' + lvl + '·2π';
-  // CW-обороты: отрицательное значение
+  if (lvl  > 0)  return base + '+' + lvl + '·2π';
   const sp = findSpecial(a);
-  if (sp) return sp + ' − ' + Math.abs(lvl) + '·2π';
-  return (norm - Math.abs(lvl) * 2 * Math.PI).toFixed(3);
+  if (sp) return sp + '−' + Math.abs(lvl) + '·2π';
+  return norm.toFixed(2) + '−' + Math.abs(lvl) + '·2π';
 }
 
 // ════════════════════════════════════════════════
@@ -702,6 +723,28 @@ function draw() {
   DOM.cos.textContent = fmt(cosA, 'cos', special);
   DOM.tan.textContent = fmt(tanA, 'tan', special);
   DOM.cot.textContent = fmt(cotA, 'cot', special);
+
+  // Подгоняем размер шрифта каждой ячейки под её ширину —
+  // гарантирует, что длинные значения (5.90−1·2π) всегда помещаются целиком.
+  fitCellValues();
+}
+
+// Уменьшает font-size значения ячейки, если текст не помещается по ширине.
+// Базовый размер 16px, минимальный 9px. Шаг подбора — пропорция ширин.
+function fitCellValues() {
+  for (const key of ['deg','rad','sin','cos','tan','cot']) {
+    const el = DOM[key];
+    if (!el) continue;
+    el.style.fontSize = '16px'; // сброс к базовому
+    const avail = el.clientWidth;
+    if (avail === 0) continue;
+    const needed = el.scrollWidth;
+    if (needed > avail) {
+      // масштабируем шрифт пропорционально, с запасом 2px и нижней границей 9px
+      const scaled = Math.max(9, Math.floor(16 * avail / needed) - 1);
+      el.style.fontSize = scaled + 'px';
+    }
+  }
 }
 
 // Рисует подписи табличных углов вокруг окружности.
@@ -824,13 +867,28 @@ function resize() {
   const isDesktop = window.innerWidth >= 768;
   let maxSize;
   if (isDesktop) {
-    // Правая панель ~220px + отступы ~48px
-    maxSize = Math.min(window.innerWidth - 220 - 48, window.innerHeight - 48);
+    // Правая панель до 360px + gap 24px + отступы ~48px
+    maxSize = Math.min(window.innerWidth - 360 - 24 - 48, window.innerHeight - 48);
   } else {
     maxSize = window.innerWidth - 32;
   }
   W = H = Math.round(Math.max(maxSize, 280));
-  canvas.width = W; canvas.height = H;
+
+  // ── Retina-рендеринг ──
+  // Физических пикселей на CSS-пиксель (2 на большинстве телефонов, 3 на flagship).
+  // Без этого канвас рисуется в низком разрешении и текст/линии выглядят мутными.
+  const dpr = window.devicePixelRatio || 1;
+
+  // CSS-размер (логический, для верстки)
+  canvas.style.width  = W + 'px';
+  canvas.style.height = H + 'px';
+  // Физический размер буфера (в реальных пикселях)
+  canvas.width  = Math.round(W * dpr);
+  canvas.height = Math.round(H * dpr);
+  // Масштабируем контекст: дальше рисуем в логических координатах, а движок
+  // отрисовывает в физическом разрешении → чёткие линии и шрифты.
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
   cx = cy = W / 2;
   R  = W * 0.36;
   draw();
