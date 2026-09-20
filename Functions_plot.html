@@ -4,7 +4,7 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
 <title>Элементарные функции</title>
-<style>*{box-sizing:border-box;margin:0;padding:0}html,body,#app{height:100%;overflow:hidden;font-family:'Courier New',monospace}#app{display:flex;flex-direction:column;background:#090e1c;color:#e2e8f0}#topbar{padding:6px 14px;display:flex;align-items:center;gap:8px;flex-shrink:0;min-height:44px;border-bottom:1px solid rgba(255,255,255,0.06);background:#0b1220}#topbar .info{flex:1;min-width:0}#topbar .fn-name{font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#475569}#topbar .eq{font-size:14px;font-weight:700;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:Georgia,serif}.tbtn{padding:3px 7px;font-size:12px;cursor:pointer;font-family:inherit;border-radius:6px;border:1px solid rgba(255,255,255,0.08);background:transparent;color:#475569;transition:all .12s;flex-shrink:0}#main{flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative}#canvas-wrap{position:relative;flex-shrink:0;overflow:hidden;cursor:crosshair}#canvas-wrap.full{position:absolute;inset:0}#graph{display:block;width:100%;height:100%}#zoom-btns{position:absolute;bottom:10px;right:12px;display:flex;gap:6px}.zbtn{width:36px;height:36px;border-radius:10px;border:1px solid rgba(255,255,255,0.1);background:rgba(0,0,0,0.65);color:#64748b;font-size:16px;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;position:relative}#export-menu{position:absolute;bottom:42px;right:0;background:#0b1220;border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:6px;display:flex;flex-direction:column;gap:4px;min-width:90px;z-index:99;box-shadow:0 4px 20px rgba(0,0,0,.3)}#export-menu button{padding:7px 12px;border-radius:6px;background:transparent;border:1px solid rgba(255,255,255,0.06);color:#475569;font-size:12px;cursor:pointer;font-family:inherit;text-align:left}#export-menu button:hover{color:var(--fn-color,#f97316);border-color:var(--fn-color,#f97316)}#tab-content{flex:1;overflow-y:auto;background:#090e1c}#tab-content.hidden{display:none}#navbar{display:flex;background:#0b1220;border-top:1px solid rgba(255,255,255,0.06);flex-shrink:0}.nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px 2px;gap:3px;cursor:pointer;font-family:inherit;border:none;background:transparent;border-top:2px solid transparent;color:#334155;transition:all .12s;font-size:9px;letter-spacing:.3px}.nav-btn .icon{font-size:16px;line-height:1}.nav-btn.active{border-top-color:var(--fn-color,#f97316);color:var(--fn-color,#f97316)}/* Tab content styles */.tab-pad{padding:10px 14px}.sec-hdr{font-size:9px;letter-spacing:1px;text-transform:uppercase;color:#475569;margin-bottom:8px}.card{padding:10px 12px;border-radius:10px;margin-bottom:10px}.fn-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;cursor:pointer;border:1px solid rgba(255,255,255,0.04);background:rgba(255,255,255,0.015);margin-bottom:4px;text-align:left;font-family:inherit;color:#94a3b8}.fn-item.active{background:var(--fn-bg,rgba(249,115,22,0.07));border-color:var(--fn-border,rgba(249,115,22,0.2))}.fn-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}.fn-item.active .fn-dot{box-shadow:0 0 8px currentColor}.fn-title{font-size:13px;font-weight:400}.fn-item.active .fn-title{font-weight:700}.fn-eq{font-size:10px;color:#475569;margin-top:1px;font-family:Georgia,serif}.cat-label{font-size:9px;letter-spacing:2px;color:#334155;text-transform:uppercase;margin:10px 0 6px}.param-row{margin-bottom:16px}.param-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}.param-lbl{font-size:12px;color:#475569}.param-input{width:58px;border-radius:5px;padding:3px 6px;font-size:16px;font-weight:700;font-family:inherit;text-align:right}.param-range{width:100%;cursor:pointer;margin:0}.param-minmax{display:flex;justify-content:space-between;font-size:9px;color:#1e2d45;margin-top:2px}.row-btns{display:flex;gap:8px;margin-bottom:14px}.btn{padding:8px;border-radius:7px;cursor:pointer;font-family:inherit;font-size:12px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.04);color:#64748b;transition:all .12s}.btn.full{flex:1;text-align:center}.btn.active{background:rgba(250,204,21,0.06);border-color:rgba(250,204,21,0.4);color:#facc15}.anim-block{padding:10px 12px;border-radius:10px;border:1px solid rgba(255,255,255,0.06);background:rgba(255,255,255,0.02);margin-top:4px}select.sty{width:100%;background:#0b1220;color:#475569;border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:6px 8px;font-size:12px;font-family:inherit;margin-bottom:8px}.anim-speed-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}.anim-start{width:100%;padding:8px;border-radius:7px;cursor:pointer;font-family:inherit;font-size:13px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.04);color:#475569}.anim-start.running{color:var(--fn-color,#f97316);border-color:var(--fn-color,#f97316);background:rgba(249,115,22,0.08)}.layer-item{display:flex;align-items:center;gap:10px;padding:8px 10px;background:rgba(255,255,255,0.025);border-radius:8px;margin-bottom:8px}.cmp-legend{padding:10px 12px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:10px}.cmp-row{display:flex;align-items:center;gap:10px;margin-bottom:7px}.cmp-line{width:20px;height:3px;border-radius:2px}/* Light theme */body.light #app{background:#f8fafc;color:#1e293b}body.light #topbar,body.light #navbar,body.light #tab-content{background:#f1f5f9}body.light #tab-content{background:#f8fafc}body.light .fn-item{background:rgba(0,0,0,0.02);border-color:rgba(0,0,0,0.06);color:#64748b}body.light .cat-label,body.light .sec-hdr,body.light .param-lbl{color:#64748b}body.light .btn{background:rgba(0,0,0,0.04);border-color:rgba(0,0,0,0.1);color:#64748b}body.light select.sty{background:#f1f5f9;color:#64748b;border-color:rgba(0,0,0,0.08)}body.light .anim-block,body.light .cmp-legend{background:rgba(0,0,0,0.03);border-color:rgba(0,0,0,0.08)}body.light .anim-start{background:rgba(0,0,0,0.04);border-color:rgba(0,0,0,0.08);color:#64748b}body.light #topbar{border-color:rgba(0,0,0,0.08)}body.light #navbar{border-color:rgba(0,0,0,0.08)}body.light #export-menu{background:#f1f5f9;border-color:rgba(0,0,0,0.08)}body.light #export-menu button{border-color:rgba(0,0,0,0.08);color:#64748b}body.light .zbtn{background:rgba(255,255,255,0.85);border-color:rgba(0,0,0,0.08);color:#64748b}body.light .nav-btn{color:#94a3b8}body.light .param-minmax{color:#94a3b8}</style>
+<style>*{box-sizing:border-box;margin:0;padding:0}html,body,#app{height:100%;overflow:hidden;font-family:'Courier New',monospace}#app{display:flex;flex-direction:column;background:#090e1c;color:#e2e8f0}#topbar{padding:6px 14px;display:flex;align-items:center;gap:8px;flex-shrink:0;min-height:44px;border-bottom:1px solid rgba(255,255,255,0.06);background:#0b1220}#topbar .info{flex:1;min-width:0}#topbar .fn-name{font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#475569}#topbar .eq{font-size:14px;font-weight:700;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:Georgia,serif}.tbtn{padding:3px 7px;font-size:12px;cursor:pointer;font-family:inherit;border-radius:6px;border:1px solid rgba(255,255,255,0.08);background:transparent;color:#475569;transition:all .12s;flex-shrink:0}#main{flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative}#canvas-wrap{position:relative;flex-shrink:0;overflow:hidden;cursor:crosshair}#canvas-wrap.full{position:absolute;inset:0}#graph{display:block;width:100%;height:100%}#zoom-btns{position:absolute;bottom:10px;right:12px;display:flex;gap:6px}.zbtn{width:36px;height:36px;border-radius:10px;border:1px solid rgba(255,255,255,0.1);background:rgba(0,0,0,0.65);color:#64748b;font-size:16px;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;position:relative}#export-menu{position:absolute;bottom:42px;right:0;background:#0b1220;border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:6px;display:flex;flex-direction:column;gap:4px;min-width:90px;z-index:99;box-shadow:0 4px 20px rgba(0,0,0,.3)}#export-menu button{padding:7px 12px;border-radius:6px;background:transparent;border:1px solid rgba(255,255,255,0.06);color:#475569;font-size:12px;cursor:pointer;font-family:inherit;text-align:left}#export-menu button:hover{color:var(--fn-color,#f97316);border-color:var(--fn-color,#f97316)}#tab-content{flex:1;overflow-y:auto;background:#090e1c}#tab-content.hidden{display:none}#navbar{display:flex;background:#0b1220;border-top:1px solid rgba(255,255,255,0.06);flex-shrink:0}.nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:12px 2px 14px;gap:5px;cursor:pointer;font-family:inherit;border:none;background:transparent;border-top:2px solid transparent;color:#334155;transition:all .12s;font-size:11px;letter-spacing:.3px}.nav-btn .icon{font-size:20px;line-height:1}.nav-btn.active{border-top-color:var(--fn-color,#f97316);color:var(--fn-color,#f97316)}/* Tab content styles */.tab-pad{padding:10px 14px}.sec-hdr{font-size:9px;letter-spacing:1px;text-transform:uppercase;color:#475569;margin-bottom:8px}.card{padding:10px 12px;border-radius:10px;margin-bottom:10px}.fn-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;cursor:pointer;border:1px solid rgba(255,255,255,0.04);background:rgba(255,255,255,0.015);margin-bottom:4px;text-align:left;font-family:inherit;color:#94a3b8}.fn-item.active{background:var(--fn-bg,rgba(249,115,22,0.07));border-color:var(--fn-border,rgba(249,115,22,0.2))}.fn-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}.fn-item.active .fn-dot{box-shadow:0 0 8px currentColor}.fn-title{font-size:13px;font-weight:400}.fn-item.active .fn-title{font-weight:700}.fn-eq{font-size:10px;color:#475569;margin-top:1px;font-family:Georgia,serif}.cat-label{font-size:9px;letter-spacing:2px;color:#334155;text-transform:uppercase;margin:10px 0 6px}.param-row{margin-bottom:16px}.param-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}.param-lbl{font-size:12px;color:#475569}.param-input{width:58px;border-radius:5px;padding:3px 6px;font-size:16px;font-weight:700;font-family:inherit;text-align:right}.param-range{width:100%;cursor:pointer;margin:0}.param-minmax{display:flex;justify-content:space-between;font-size:9px;color:#1e2d45;margin-top:2px}.row-btns{display:flex;gap:8px;margin-bottom:14px}.btn{padding:8px;border-radius:7px;cursor:pointer;font-family:inherit;font-size:12px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.04);color:#64748b;transition:all .12s}.btn.full{flex:1;text-align:center}.btn.active{background:rgba(250,204,21,0.06);border-color:rgba(250,204,21,0.4);color:#facc15}.anim-block{padding:10px 12px;border-radius:10px;border:1px solid rgba(255,255,255,0.06);background:rgba(255,255,255,0.02);margin-top:4px}select.sty{width:100%;background:#0b1220;color:#475569;border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:6px 8px;font-size:12px;font-family:inherit;margin-bottom:8px}.anim-speed-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}.anim-start{width:100%;padding:8px;border-radius:7px;cursor:pointer;font-family:inherit;font-size:13px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.04);color:#475569}.anim-start.running{color:var(--fn-color,#f97316);border-color:var(--fn-color,#f97316);background:rgba(249,115,22,0.08)}.layer-item{display:flex;align-items:center;gap:10px;padding:8px 10px;background:rgba(255,255,255,0.025);border-radius:8px;margin-bottom:8px}.cmp-legend{padding:10px 12px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:10px}.cmp-row{display:flex;align-items:center;gap:10px;margin-bottom:7px}.cmp-line{width:20px;height:3px;border-radius:2px}/* Light theme */body.light #app{background:#f8fafc;color:#1e293b}body.light #topbar,body.light #navbar,body.light #tab-content{background:#f1f5f9}body.light #tab-content{background:#f8fafc}body.light .fn-item{background:rgba(0,0,0,0.02);border-color:rgba(0,0,0,0.06);color:#64748b}body.light .cat-label,body.light .sec-hdr,body.light .param-lbl{color:#64748b}body.light .btn{background:rgba(0,0,0,0.04);border-color:rgba(0,0,0,0.1);color:#64748b}body.light select.sty{background:#f1f5f9;color:#64748b;border-color:rgba(0,0,0,0.08)}body.light .anim-block,body.light .cmp-legend{background:rgba(0,0,0,0.03);border-color:rgba(0,0,0,0.08)}body.light .anim-start{background:rgba(0,0,0,0.04);border-color:rgba(0,0,0,0.08);color:#64748b}body.light #topbar{border-color:rgba(0,0,0,0.08)}body.light #navbar{border-color:rgba(0,0,0,0.08)}body.light #export-menu{background:#f1f5f9;border-color:rgba(0,0,0,0.08)}body.light #export-menu button{border-color:rgba(0,0,0,0.08);color:#64748b}body.light .zbtn{background:rgba(255,255,255,0.85);border-color:rgba(0,0,0,0.08);color:#64748b}body.light .nav-btn{color:#94a3b8}body.light .param-minmax{color:#94a3b8}</style>
 </head>
 <body>
 <div id="app">
@@ -13,6 +13,7 @@
       <div class="fn-name" id="fn-name-lbl"></div>
       <div class="eq" id="eq-lbl"></div>
     </div>
+    <button class="tbtn" id="btn-lang" title="Язык / Language">EN</button>
     <button class="tbtn" id="btn-theme" title="Тема">☀️</button>
     <button class="tbtn" id="btn-abs" title="Модуль">|y|</button>
     <button class="tbtn" id="btn-deriv" title="Производная">y'</button>
@@ -38,11 +39,11 @@
     <div id="tab-content" class="hidden"></div>
   </div>
   <div id="navbar">
-    <button class="nav-btn active" data-tab="graph"><span class="icon">◈</span>График</button>
-    <button class="nav-btn" data-tab="funcs"><span class="icon">ƒ</span>Функции</button>
-    <button class="nav-btn" data-tab="params"><span class="icon">⚙</span>Параметры</button>
-    <button class="nav-btn" data-tab="layers"><span class="icon">⧉</span>Слои</button>
-    <button class="nav-btn" data-tab="compare"><span class="icon">⇄</span>Сравнение</button>
+    <button class="nav-btn active" data-tab="graph"><span class="icon">◈</span><span class="nav-lbl" data-lbl="graph">График</span></button>
+    <button class="nav-btn" data-tab="funcs"><span class="icon">ƒ</span><span class="nav-lbl" data-lbl="funcs">Функции</span></button>
+    <button class="nav-btn" data-tab="params"><span class="icon">⚙</span><span class="nav-lbl" data-lbl="params">Параметры</span></button>
+    <button class="nav-btn" data-tab="layers"><span class="icon">⧉</span><span class="nav-lbl" data-lbl="layers">Слои</span></button>
+    <button class="nav-btn" data-tab="compare"><span class="icon">⇄</span><span class="nav-lbl" data-lbl="compare">Сравнение</span></button>
   </div>
 </div>
 <script>
@@ -117,11 +118,24 @@ const CATS=[
   {label:"Кривые",ids:["circle","ellipse"]},
 ];
 const LAYER_COLORS=["#facc15","#4ade80","#f472b6","#38bdf8","#fb923c","#a78bfa"];
+// ── i18n ──
+const NAMES_EN={linear_prop:"Direct proportion",linear:"Linear function",inv_prop:"Inverse proportion",quadratic:"Quadratic",cubic:"Cubic",nroot:"nth root",exp:"Exponential",log:"Logarithmic",sin:"Sine",cos:"Cosine",tan:"Tangent",cot:"Cotangent",arcsin:"Arcsine",arccos:"Arccosine",arctan:"Arctangent",arccot:"Arccotangent",circle:"Circle",ellipse:"Ellipse"};
+const GEN_EN={linear_prop:"y = kx",linear:"y = kx + b",inv_prop:"y = k / (ax+b) + D",quadratic:"y = ax² + bx + c",cubic:"y = ax³ + bx² + cx + d",nroot:"y = A·ⁿ√x + D",exp:"y = A·aˣ + D",log:"y = A·logₐ(x) + D",sin:"y = A·sin(Bx+C) + D",cos:"y = A·cos(Bx+C) + D",tan:"y = A·tan(Bx+C) + D",cot:"y = A·cot(Bx+C) + D",arcsin:"y = A·arcsin(Bx) + D",arccos:"y = A·arccos(Bx) + D",arctan:"y = A·arctan(Bx) + D",arccot:"y = A·arccot(Bx) + D",circle:"(x−x₀)² + (y−y₀)² = r²",ellipse:"(x−x₀)²/a² + (y−y₀)²/b² = 1"};
+const CATS_EN=["Power functions","Exponential / logarithmic","Trigonometric","Inverse trigonometric","Curves"];
+const T_UI={
+  ru:{graph:"График",funcs:"Функции",params:"Параметры",layers:"Слои",compare:"Сравнение",reset:"↺ Сбросить",share:"⎘ Поделиться",shared:"✓ Скопировано",animation:"АНИМАЦИЯ",animPick:"— выбери параметр —",speed:"Скорость",animRun:"▶ Запустить",animStop:"⏹ Остановить",overlay:"НАЛОЖЕНИЕ ФУНКЦИЙ",fixCur:"+ Зафиксировать текущий график",noLayers:"Нет зафиксированных графиков",clearAll:"Очистить все",cmpMode:"РЕЖИМ СРАВНЕНИЯ",cmpOn:"● Сравнение включено",cmpOff:"○ Включить сравнение",cmpParam:"Параметр для сравнения"},
+  en:{graph:"Graph",funcs:"Functions",params:"Parameters",layers:"Layers",compare:"Compare",reset:"↺ Reset",share:"⎘ Share",shared:"✓ Copied",animation:"ANIMATION",animPick:"— pick a parameter —",speed:"Speed",animRun:"▶ Play",animStop:"⏹ Stop",overlay:"FUNCTION OVERLAY",fixCur:"+ Pin current graph",noLayers:"No pinned graphs",clearAll:"Clear all",cmpMode:"COMPARE MODE",cmpOn:"● Compare enabled",cmpOff:"○ Enable compare",cmpParam:"Parameter to compare"},
+};
+function L(){return S.lang==="en"?T_UI.en:T_UI.ru;}
+function fName(f){return S.lang==="en"?NAMES_EN[f.id]:f.name;}
+function fGen(id){return S.lang==="en"?GEN_EN[id]:GEN[id];}
+function catLabel(i){return S.lang==="en"?CATS_EN[i]:CATS[i].label;}
 const S={
+  lang:"ru",
   selectedId:"linear",params:{k:1,b:0},zoom:55,offset:{x:0,y:0},
   activeTab:"graph",layers:[],showDeriv:false,absMode:false,
   compareMode:false,compareParam:null,compareValue:0,
-  animParam:null,animRunning:false,animSpeed:0.5,lightTheme:false,
+  animParam:null,animRunning:false,animSpeed:0.5,lightTheme:true,
 };
 let dragging=null,animInterval=null,animDir=1,baseZoom=55;
 const SPLIT_RATIO=0.52;
@@ -303,7 +317,7 @@ function updateTopbar(){
   document.documentElement.style.setProperty("--fn-color",f.color);
   document.documentElement.style.setProperty("--fn-bg",f.color+"12");
   document.documentElement.style.setProperty("--fn-border",f.color+"30");
-  document.getElementById("fn-name-lbl").textContent=f.name.toUpperCase();
+  document.getElementById("fn-name-lbl").textContent=fName(f).toUpperCase();
   document.getElementById("eq-lbl").innerHTML=getEqHtml();
   document.getElementById("eq-lbl").style.color=f.color;
   const ba=document.getElementById("btn-abs");
@@ -346,15 +360,15 @@ function renderTab(tab){
   attachTabEvents(tab);
 }
 function renderFuncs(){
-  return`<div class="tab-pad">`+CATS.map(cat=>`
-    <div class="cat-label">${cat.label}</div>
+  return`<div class="tab-pad">`+CATS.map((cat,ci)=>`
+    <div class="cat-label">${catLabel(ci)}</div>
     <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:14px">
     ${cat.ids.map(id=>{
       const f=FUNCTIONS.find(ff=>ff.id===id);
       const active=S.selectedId===id;
       return`<button class="fn-item${active?" active":""}" data-fn="${id}" style="width:100%;color:${active?f.color:""}">
         <div class="fn-dot" style="background:${f.color};color:${f.color}"></div>
-        <div style="flex:1;text-align:left"><div class="fn-title">${f.name}</div><div class="fn-eq">${GEN[id]||""}</div></div>
+        <div style="flex:1;text-align:left"><div class="fn-title">${fName(f)}</div><div class="fn-eq">${fGen(id)||""}</div></div>
         ${active?`<div style="font-size:10px;color:${f.color}">●</div>`:""}
       </button>`;
     }).join("")}
@@ -366,8 +380,8 @@ function renderParams(){
   const c=f.color;
   return`<div class="tab-pad">
     <div class="row-btns">
-      <button class="btn full" id="p-reset">↺ Сбросить</button>
-      <button class="btn full" id="p-share">⎘ Поделиться</button>
+      <button class="btn full" id="p-reset">${L().reset}</button>
+      <button class="btn full" id="p-share">${L().share}</button>
     </div>
     ${f.paramDefs.map(pd=>{
       const val=S.params[pd.key]??pd.min;
@@ -381,18 +395,18 @@ function renderParams(){
       </div>`;
     }).join("")}
     <div class="anim-block">
-      <div class="sec-hdr" style="margin-bottom:8px">АНИМАЦИЯ</div>
+      <div class="sec-hdr" style="margin-bottom:8px">${L().animation}</div>
       <select class="sty" id="anim-sel">
-        <option value="">— выбери параметр —</option>
+        <option value="">${L().animPick}</option>
         ${f.paramDefs.map(pd=>`<option value="${pd.key}"${S.animParam===pd.key?" selected":""}>${pd.key}</option>`).join("")}
       </select>
       <div class="anim-speed-row">
-        <span style="font-size:11px;color:#475569">Скорость</span>
+        <span style="font-size:11px;color:#475569">${L().speed}</span>
         <input type="range" min="0.05" max="2" step="0.05" value="${S.animSpeed}" id="anim-speed" style="flex:1;accent-color:#475569"/>
         <span style="font-size:11px;color:#475569;min-width:28px">${S.animSpeed.toFixed(1)}×</span>
       </div>
       <button class="anim-start${S.animRunning?" running":""}" id="anim-btn" style="${S.animRunning?`color:${c};border-color:${c};background:${c}20`:""}">
-        ${S.animRunning?"⏹ Остановить":"▶ Запустить"}
+        ${S.animRunning?L().animStop:L().animRun}
       </button>
     </div>
   </div>`;
@@ -400,34 +414,34 @@ function renderParams(){
 function renderLayers(){
   const f=fn();
   return`<div class="tab-pad">
-    <div class="sec-hdr">НАЛОЖЕНИЕ ФУНКЦИЙ</div>
-    <button class="btn" style="width:100%;margin-bottom:12px;color:${f.color};border-color:${f.color}40;background:${f.color}08" id="add-layer">+ Зафиксировать текущий график</button>
-    ${S.layers.length===0?`<div style="font-size:12px;color:#475569;text-align:center;padding:24px 0">Нет зафиксированных графиков</div>`:""}
+    <div class="sec-hdr">${L().overlay}</div>
+    <button class="btn" style="width:100%;margin-bottom:12px;color:${f.color};border-color:${f.color}40;background:${f.color}08" id="add-layer">${L().fixCur}</button>
+    ${S.layers.length===0?`<div style="font-size:12px;color:#475569;text-align:center;padding:24px 0">${L().noLayers}</div>`:""}
     ${S.layers.map((l,i)=>`
       <div class="layer-item" style="border:1px solid ${l.color}25">
         <div style="width:12px;height:12px;border-radius:50%;background:${l.color};box-shadow:0 0 6px ${l.color}"></div>
         <div style="flex:1;min-width:0">
-          <div style="font-size:12px;color:${l.color};font-weight:600">${l.name}</div>
+          <div style="font-size:12px;color:${l.color};font-weight:600">${fName(FUNCTIONS.find(ff=>ff.id===l.id)||{id:l.id,name:l.id})}</div>
           <div style="font-size:9px;color:#334155;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${Object.entries(l.params).map(([k,v])=>`${k}=${fmt(v)}`).join("  ")}</div>
         </div>
         <button class="btn" data-del="${i}" style="padding:3px 8px;font-size:14px;color:#ef4444;border-color:rgba(239,68,68,.15)">×</button>
       </div>
     `).join("")}
-    ${S.layers.length>0?`<button class="btn" style="width:100%;margin-top:4px;padding:8px;text-align:center" id="clear-layers">Очистить все</button>`:""}
+    ${S.layers.length>0?`<button class="btn" style="width:100%;margin-top:4px;padding:8px;text-align:center" id="clear-layers">${L().clearAll}</button>`:""}
   </div>`;
 }
 function renderCompare(){
   const f=fn();if(!f)return"";
   const pd=S.compareParam?f.paramDefs.find(p=>p.key===S.compareParam):null;
   return`<div class="tab-pad">
-    <div class="sec-hdr">РЕЖИМ СРАВНЕНИЯ</div>
+    <div class="sec-hdr">${L().cmpMode}</div>
     <button class="btn${S.compareMode?" active":""}" style="width:100%;padding:10px;margin-bottom:12px;font-size:13px${S.compareMode?";color:#facc15;border-color:#facc1560;background:rgba(250,204,21,.06)":""}" id="cmp-toggle">
-      ${S.compareMode?"● Сравнение включено":"○ Включить сравнение"}
+      ${S.compareMode?L().cmpOn:L().cmpOff}
     </button>
     <div style="margin-bottom:12px">
-      <div style="font-size:10px;color:#475569;margin-bottom:6px">Параметр для сравнения</div>
+      <div style="font-size:10px;color:#475569;margin-bottom:6px">${L().cmpParam}</div>
       <select class="sty" id="cmp-param">
-        <option value="">— выбери параметр —</option>
+        <option value="">${L().animPick}</option>
         ${f.paramDefs.map(p=>`<option value="${p.key}"${S.compareParam===p.key?" selected":""}>${p.key}</option>`).join("")}
       </select>
     </div>
@@ -524,7 +538,7 @@ function resetParams(){stopAnim();S.params={...fn().params};updateTopbar();draw(
 function addLayer(){
   if(S.layers.length>=6)return;
   const f=fn();const color=LAYER_COLORS[S.layers.length];
-  S.layers.push({id:f.id,fn:{...f,color},params:{...S.params},name:f.name,color});
+  S.layers.push({id:f.id,fn:{...f,color},params:{...S.params},color});
   renderTab("layers");draw();
 }
 function shareUrl(){
@@ -532,16 +546,16 @@ function shareUrl(){
   const url=location.origin+location.pathname+"#"+h;
   navigator.clipboard.writeText(url).catch(()=>{});
   const btn=document.getElementById("p-share");
-  if(btn){btn.textContent="✓ Скопировано";setTimeout(()=>{btn.textContent="⎘ Поделиться";},2000);}
+  if(btn){btn.textContent=L().shared;setTimeout(()=>{btn.textContent=L().share;},2000);}
 }
-function stopAnim(){if(animInterval){clearInterval(animInterval);animInterval=null;}S.animRunning=false;const b=document.getElementById("anim-btn");if(b){b.textContent="▶ Запустить";b.className="anim-start";}}
+function stopAnim(){if(animInterval){clearInterval(animInterval);animInterval=null;}S.animRunning=false;const b=document.getElementById("anim-btn");if(b){b.textContent=L().animRun;b.className="anim-start";}}
 function toggleAnim(){
   if(S.animRunning){stopAnim();renderTab("params");return;}
   if(!S.animParam)return;
   const pd=fn().paramDefs.find(p=>p.key===S.animParam);if(!pd)return;
   S.animRunning=true;animDir=1;
   const b=document.getElementById("anim-btn");
-  if(b){b.textContent="⏹ Остановить";b.className="anim-start running";b.style.color=fn().color;b.style.borderColor=fn().color;}
+  if(b){b.textContent=L().animStop;b.className="anim-start running";b.style.color=fn().color;b.style.borderColor=fn().color;}
   animInterval=setInterval(()=>{
     let val=(S.params[S.animParam]??pd.min)+animDir*S.animSpeed*(pd.step||.1)*.8;
     if(val>=pd.max){val=pd.max;animDir=-1;}
@@ -555,9 +569,39 @@ cw.addEventListener("mousedown",e=>{dragging={sx:e.clientX,sy:e.clientY,ox:S.off
 cw.addEventListener("mousemove",e=>{if(!dragging)return;S.offset={x:dragging.ox+e.clientX-dragging.sx,y:dragging.oy+e.clientY-dragging.sy};draw();});
 cw.addEventListener("mouseup",()=>dragging=null);
 cw.addEventListener("mouseleave",()=>dragging=null);
-cw.addEventListener("touchstart",e=>{const t=e.touches[0];dragging={sx:t.clientX,sy:t.clientY,ox:S.offset.x,oy:S.offset.y};},{passive:true});
-cw.addEventListener("touchmove",e=>{if(!dragging)return;const t=e.touches[0];S.offset={x:dragging.ox+t.clientX-dragging.sx,y:dragging.oy+t.clientY-dragging.sy};draw();},{passive:true});
-cw.addEventListener("touchend",()=>dragging=null);
+let pinch=null;
+function touchDist(t0,t1){const dx=t0.clientX-t1.clientX,dy=t0.clientY-t1.clientY;return Math.hypot(dx,dy);}
+function touchMid(t0,t1,rect){return{x:(t0.clientX+t1.clientX)/2-rect.left,y:(t0.clientY+t1.clientY)/2-rect.top};}
+cw.addEventListener("touchstart",e=>{
+  if(e.touches.length===2){
+    dragging=null;
+    const rect=cw.getBoundingClientRect();
+    pinch={dist:touchDist(e.touches[0],e.touches[1]),zoom:S.zoom,mid:touchMid(e.touches[0],e.touches[1],rect),off:{...S.offset}};
+  }else{
+    pinch=null;
+    const t=e.touches[0];dragging={sx:t.clientX,sy:t.clientY,ox:S.offset.x,oy:S.offset.y};
+  }
+},{passive:true});
+cw.addEventListener("touchmove",e=>{
+  if(e.touches.length===2&&pinch){
+    e.preventDefault();
+    const rect=cw.getBoundingClientRect();
+    const d=touchDist(e.touches[0],e.touches[1]);
+    const ratio=d/pinch.dist;
+    const newZoom=Math.max(10,Math.min(300,pinch.zoom*ratio));
+    // keep the pinch midpoint anchored while zooming
+    const mid=touchMid(e.touches[0],e.touches[1],rect);
+    const cxOld=cw.clientWidth/2+pinch.off.x, cyOld=cw.clientHeight/2+pinch.off.y;
+    const mxWorld=(pinch.mid.x-cxOld)/pinch.zoom, myWorld=(pinch.mid.y-cyOld)/pinch.zoom;
+    S.zoom=newZoom;
+    S.offset={x:mid.x-cw.clientWidth/2-mxWorld*newZoom, y:mid.y-cw.clientHeight/2-myWorld*newZoom};
+    if(S.activeTab==="graph")baseZoom=S.zoom;
+    draw();
+  }else if(dragging){
+    const t=e.touches[0];S.offset={x:dragging.ox+t.clientX-dragging.sx,y:dragging.oy+t.clientY-dragging.sy};draw();
+  }
+},{passive:false});
+cw.addEventListener("touchend",e=>{if(e.touches.length<2)pinch=null;if(e.touches.length===0)dragging=null;});
 cw.addEventListener("wheel",e=>{e.preventDefault();S.zoom=Math.max(10,Math.min(300,S.zoom*(e.deltaY<0?1.1:.9)));if(S.activeTab==="graph")baseZoom=S.zoom;draw();},{passive:false});
 document.getElementById("btn-zp").addEventListener("click",()=>{setZoom(S.zoom*1.2);if(S.activeTab==="graph")baseZoom=S.zoom;});
 document.getElementById("btn-zm").addEventListener("click",()=>{setZoom(S.zoom*.8);if(S.activeTab==="graph")baseZoom=S.zoom;});
@@ -566,14 +610,24 @@ document.getElementById("btn-exp").addEventListener("click",()=>{
   const m=document.getElementById("export-menu");m.style.display=m.style.display==="none"?"flex":"none";
 });
 document.addEventListener("click",e=>{if(!e.target.closest("#btn-exp")&&!e.target.closest("#export-menu"))document.getElementById("export-menu").style.display="none";});
+function applyLang(){
+  document.querySelectorAll(".nav-lbl").forEach(el=>{el.textContent=L()[el.dataset.lbl];});
+  document.getElementById("btn-lang").textContent=S.lang==="en"?"RU":"EN";
+  updateTopbar();
+  if(S.activeTab!=="graph")renderTab(S.activeTab);
+  draw();
+}
+document.getElementById("btn-lang").addEventListener("click",()=>{
+  S.lang=S.lang==="en"?"ru":"en";
+  applyLang();
+});
 document.getElementById("btn-theme").addEventListener("click",()=>{
   S.lightTheme=!S.lightTheme;document.body.classList.toggle("light",S.lightTheme);
   document.getElementById("btn-theme").textContent=S.lightTheme?"🌙":"☀️";
   document.querySelectorAll(".param-input").forEach(el=>el.style.setProperty("--inp-bg",S.lightTheme?"#f1f5f9":"#0b1220"));
   draw();
 });
-document.getElementById("btn-abs").addEventListener("click",()=>{S.absMode=!S.absMode;updateTopbar();draw();});
-document.getElementById("btn-deriv").addEventListener("click",()=>{S.showDeriv=!S.showDeriv;updateTopbar();draw();});
+document.getElementById("btn-abs").addEventListener("click",()=>{S.absMode=!S.absMode;updateTopbar();draw();});document.getElementById("btn-deriv").addEventListener("click",()=>{S.showDeriv=!S.showDeriv;updateTopbar();draw();});
 document.querySelectorAll(".nav-btn").forEach(b=>{
   b.addEventListener("click",()=>{
     if(b.dataset.tab==="graph")baseZoom=S.zoom;
@@ -584,6 +638,9 @@ try{
   const h=location.hash.slice(1);
   if(h){const st=JSON.parse(decodeURIComponent(h));if(st.id){S.selectedId=st.id;const f=FUNCTIONS.find(f=>f.id===st.id);if(f){S.params={...f.params,...(st.params||{})};if(st.zoom)S.zoom=st.zoom;if(st.offset)S.offset=st.offset;}}}
 }catch(e){}
+document.body.classList.toggle("light",S.lightTheme);
+document.getElementById("btn-theme").textContent=S.lightTheme?"🌙":"☀️";
+document.querySelectorAll(".param-input").forEach(el=>el.style.setProperty("--inp-bg",S.lightTheme?"#f1f5f9":"#0b1220"));
 window.addEventListener("resize",resizeCanvas);
 new ResizeObserver(resizeCanvas).observe(cw);
 updateTopbar();setTab("graph");
