@@ -15,11 +15,40 @@
     --text:    #c8cfe0;
     --dim:     #5a6070;
     --accent:  #7c6dfa;
+    --accent-rgb: 124,109,250;
+    --surface-rgb: 13,15,20;
     --sin:     #3dffa0;
     --cos:     #4db8ff;
     --tan:     #ffaa00;
     --cot:     #ff5fa0;
     --point:   #ff4466;
+    --point-rgb: 255,68,102;
+    --point-ring: #ff8899;
+    --text-bright: #e8ecf8;
+    --ring:        #e88a7e;
+    --angle:       #9099ac;
+  }
+  /* Светлая палитра — переопределяется через html[data-palette="light"],
+     полный список палитр и их значений — в JS-объекте PALETTES ниже. */
+  html[data-palette="light"] {
+    --bg:      #eef0f6;
+    --surface: #ffffff;
+    --border:  #d7dbe6;
+    --text:    #1d2233;
+    --dim:     #6b7280;
+    --accent:  #5b4fd6;
+    --accent-rgb: 91,79,214;
+    --surface-rgb: 255,255,255;
+    --sin:     #0e9f68;
+    --cos:     #0f7ec4;
+    --tan:     #b8720a;
+    --cot:     #c23a76;
+    --point:   #d81b3f;
+    --point-rgb: 216,27,63;
+    --point-ring: #f0607a;
+    --text-bright: #10131c;
+    --ring:        #e88a7e;
+    --angle:       #5b6478;
   }
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -68,7 +97,7 @@
     border: 1px solid var(--border);
     border-radius: 16px;
     padding: 8px;
-    box-shadow: 0 0 60px rgba(124,109,250,0.08), 0 20px 60px rgba(0,0,0,0.5);
+    box-shadow: 0 0 60px rgba(var(--accent-rgb),0.08), 0 20px 60px rgba(0,0,0,0.5);
     cursor: crosshair;
     touch-action: none;
   }
@@ -79,41 +108,66 @@
     position: absolute;
     bottom: 10px; left: 10px;
     display: flex;
-    align-items: center;
+    align-items: flex-end; /* стрелки на уровне счётчика, а не «сброс» над ним */
     gap: 6px;
+  }
+  .lvl-stack {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
   }
   .lvl {
     font-size: 0.75rem;
     font-weight: 600;
-    color: rgba(124,109,250,0.85);
-    background: rgba(13,15,20,0.7);
+    color: rgba(var(--accent-rgb),0.85);
+    background: rgba(var(--surface-rgb),0.7);
     padding: 4px 9px;
     border-radius: 8px;
-    border: 1px solid rgba(124,109,250,0.3);
-    pointer-events: none;
+    border: 1px solid rgba(var(--accent-rgb),0.3);
+    cursor: pointer;
     letter-spacing: 0.05em;
+  }
+  .lvl-step {
+    padding: 4px 7px;
   }
   .lvl-reset {
     font-family: 'JetBrains Mono', monospace;
     font-size: 0.65rem;
     font-weight: 600;
-    color: rgba(124,109,250,0.7);
-    background: rgba(13,15,20,0.7);
+    color: rgba(var(--accent-rgb),0.7);
+    background: rgba(var(--surface-rgb),0.7);
     padding: 4px 8px;
     border-radius: 8px;
-    border: 1px solid rgba(124,109,250,0.25);
+    border: 1px solid rgba(var(--accent-rgb),0.25);
     cursor: pointer;
     transition: all 0.15s;
   }
-  .lvl-reset:hover { border-color: rgba(124,109,250,0.7); color: rgba(124,109,250,1); }
+  .lvl-reset:hover { border-color: rgba(var(--accent-rgb),0.7); color: rgba(var(--accent-rgb),1); }
 
-  /* ── Кнопки переключения ── */
+  /* ── Кнопки переключения: три ряда в ОДНОЙ общей сетке из 2 колонок —
+     [координаты / метки углов], [sin и cos / tan+ctg], [блины / спираль]
+     (третья строка видна только в 3D). Всё в одних и тех же колонках,
+     поэтому весь блок выглядит согласованной таблицей, а не тремя
+     отдельными системами выравнивания. С flex-wrap каждая строка
+     центрировалась бы по своей отдельной суммарной ширине и края бы не
+     совпадали — потому используется CSS Grid.
+     tan/cot — пара, растянутая на колонку 2 и разведённая по её краям
+     (space-between): tan начинается и cot заканчивается ровно там же,
+     где «метки углов» и «спираль». ──*/
   .controls {
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(2, auto);
     gap: 8px;
-    flex-wrap: wrap;
     justify-content: center;
   }
+  #btn-coords    { grid-column: 1; grid-row: 1; }
+  #btn-labels    { grid-column: 2; grid-row: 1; }
+  #btn-sin       { grid-column: 1; grid-row: 2; }
+  .tancot-pair   { grid-column: 2; grid-row: 2; display: flex; justify-content: space-between; gap: 8px; }
+  .mode3d-pair   { display: contents; }
+  #btn-pancakes  { grid-column: 1; grid-row: 3; }
+  #btn-spiral    { grid-column: 2; grid-row: 3; }
   .btn {
     font-family: 'JetBrains Mono', monospace;
     font-size: 0.82rem;
@@ -130,12 +184,17 @@
   .btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
 
   /* Кнопка языка — в левом верхнем углу канваса */
-  .btn-lang {
+  /* EN и переключатель темы — общий ряд в левом верхнем углу канваса */
+  .top-left-buttons {
     position: absolute;
     top: 10px; left: 10px;
     z-index: 2;
-    color: rgba(124,109,250,0.85) !important;
-    border-color: rgba(124,109,250,0.4) !important;
+    display: flex;
+    gap: 8px;
+  }
+  .btn-lang {
+    color: rgba(var(--accent-rgb),0.85) !important;
+    border-color: rgba(var(--accent-rgb),0.4) !important;
     font-weight: 600;
   }
   /* Кнопка 2D/3D — в правом нижнем углу канваса */
@@ -143,16 +202,27 @@
     position: absolute;
     bottom: 10px; right: 10px;
     z-index: 2;
-    color: rgba(124,109,250,0.85) !important;
-    border-color: rgba(124,109,250,0.4) !important;
+    color: rgba(var(--accent-rgb),0.85) !important;
+    border-color: rgba(var(--accent-rgb),0.4) !important;
     font-weight: 600;
   }
   /* lang и dim не подсвечиваются при наведении/нажатии/активации */
   .btn-lang:hover, .btn-dim:hover,
   .btn-lang.active, .btn-dim.active {
     background: var(--surface) !important;
-    border-color: rgba(124,109,250,0.4) !important;
-    color: rgba(124,109,250,0.85) !important;
+    border-color: rgba(var(--accent-rgb),0.4) !important;
+    color: rgba(var(--accent-rgb),0.85) !important;
+  }
+  /* Кнопка палитры — в общем ряду с EN, по клику циклит темы */
+  .btn-palette {
+    color: rgba(var(--accent-rgb),0.85) !important;
+    border-color: rgba(var(--accent-rgb),0.4) !important;
+    font-weight: 600;
+  }
+  .btn-palette:hover, .btn-palette.active {
+    background: var(--surface) !important;
+    border-color: rgba(var(--accent-rgb),0.4) !important;
+    color: rgba(var(--accent-rgb),0.85) !important;
   }
 
   /* ── Панель значений ── */
@@ -202,14 +272,14 @@
   .stat-value {
     font-size: 1rem;
     font-weight: 600;
-    color: #e8ecf8;
+    color: var(--text-bright);
     white-space: nowrap;
     overflow: hidden;
     line-height: 1.2;
     /* font-size подстраивается в JS под ширину ячейки (fitCellValue) */
   }
-  .stat.angle .stat-value { color: var(--accent); }
-  .stat.rad   .stat-value { color: #a0b0cc; }
+  .stat.angle .stat-value { color: var(--angle); }
+  .stat.rad   .stat-value { color: var(--ring); }
   .stat.sin   .stat-value { color: var(--sin); }
   .stat.cos   .stat-value { color: var(--cos); }
   .stat.tan   .stat-value { color: var(--tan); }
@@ -242,38 +312,26 @@
     }
     .stat-col { display: contents; }
 
-    /* Кнопки в колонку, растянуты на всю ширину */
+    /* Кнопки в колонку, растянуты на всю ширину — сбрасываем grid-размещение
+       мобильной раскладки в одну колонку, друг под другом по DOM-порядку.
+       .tancot-pair и .mode3d-pair растворяем через display:contents, чтобы
+       их кнопки тоже стали обычными полноширинными строками, как остальные. */
     .controls {
-      flex-direction: column;
-      align-items: stretch;
+      grid-template-columns: 1fr;
+      gap: 8px;
       width: 100%;
+    }
+    .tancot-pair, .mode3d-pair { display: contents; }
+    #btn-coords, #btn-labels, #btn-sin, #btn-tan, #btn-cot,
+    #btn-pancakes, #btn-spiral {
+      grid-column: 1;
+      grid-row: auto;
     }
     .controls .btn {
       width: 100%;
       text-align: left;
     }
   }
-  /* ── Заголовок «Блинный торт» и пояснение (только 3D) ── */
-  #cake-header {
-    text-align: center;
-    max-width: 640px;
-    margin: 0 auto 4px;
-    padding: 0 16px;
-  }
-  #cake-title {
-    font-family: 'Crimson Pro', serif;
-    font-size: 1.9rem;
-    font-weight: 600;
-    color: #e8ecf8;
-    margin-bottom: 6px;
-  }
-  #cake-desc {
-    font-size: 0.82rem;
-    line-height: 1.5;
-    color: var(--dim);
-  }
-  #cake-desc b { color: var(--sin); font-weight: 600; }
-
   /* ── Столбец канваса + слайдер ── */
   .canvas-col {
     display: flex;
@@ -311,26 +369,35 @@
     appearance: none;
     width: 18px; height: 18px;
     border-radius: 50%;
-    background: var(--sin);
+    background: rgba(var(--point-rgb),0.55);
+    border: 2px solid var(--point-ring);
+    box-sizing: border-box;
     cursor: pointer;
-    box-shadow: 0 0 8px rgba(61,255,160,0.4);
   }
   .angle-slider::-moz-range-thumb {
     width: 18px; height: 18px;
-    border: none;
+    border: 2px solid var(--point-ring);
+    box-sizing: border-box;
     border-radius: 50%;
-    background: var(--sin);
+    background: rgba(var(--point-rgb),0.55);
     cursor: pointer;
   }
 
   /* ── Режим «Интервал» ── */
   .interval-row {
     display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    margin-top: 4px;
+  }
+  .interval-fields-row {
+    display: flex;
     align-items: center;
     gap: 8px;
     flex-wrap: wrap;
     justify-content: center;
-    margin-top: 4px;
+    width: 100%;
   }
   .interval-title {
     font-size: 0.72rem;
@@ -346,7 +413,8 @@
   .interval-title.active { background: var(--accent); border-color: var(--accent); color: #fff; }
   .interval-lbl { font-size: 0.72rem; color: var(--dim); }
   .interval-inp {
-    width: 56px;
+    flex: 1 1 0;
+    min-width: 56px;
     font-family: 'JetBrains Mono', monospace;
     font-size: 0.82rem;
     font-weight: 600;
@@ -362,6 +430,9 @@
   .interval-inp::-webkit-outer-spin-button,
   .interval-inp::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
   .interval-inp:focus { border-color: var(--accent); }
+  /* Не удалось разобрать выражение (например, незакрытая скобка) —
+     видимая подсветка вместо молчаливого игнорирования ввода. */
+  .interval-inp.invalid { border-color: var(--point); color: var(--point); }
   .interval-unit {
     font-family: 'JetBrains Mono', monospace;
     font-size: 0.9rem;
@@ -387,40 +458,41 @@
   .cam-btn {
     width: 38px; height: 38px;
     font-size: 0.9rem;
-    color: rgba(124,109,250,0.85);
-    background: rgba(13,15,20,0.7);
-    border: 1px solid rgba(124,109,250,0.4);
+    color: rgba(var(--accent-rgb),0.85);
+    background: rgba(var(--surface-rgb),0.7);
+    border: 1px solid rgba(var(--accent-rgb),0.4);
     border-radius: 10px;
     cursor: pointer;
     transition: all 0.15s;
     display: flex; align-items: center; justify-content: center;
   }
   .cam-btn:hover, .cam-btn:active {
-    background: rgba(124,109,250,0.2);
-    border-color: rgba(124,109,250,0.8);
-    color: #fff;
+    background: rgba(var(--accent-rgb),0.2);
+    border-color: rgba(var(--accent-rgb),0.8);
+    color: var(--accent);
   }
 </style>
 </head>
 <body>
-
-<!-- Заголовок и пояснение — видны только в 3D -->
-<div id="cake-header" style="display:none">
-  <h1 id="cake-title">Блинный торт</h1>
-  <p id="cake-desc"></p>
-</div>
 
 <div class="layout">
 
 <!-- Левый столбец: канвас + слайдер -->
 <div class="canvas-col">
 <!-- Канвас -->
-<div class="canvas-wrapper" id="wrapper">
+<div class="canvas-wrapper">
   <div class="lvl-wrap">
-    <div class="lvl" id="lvl-counter">lvl: 0</div>
-    <button class="lvl-reset" id="btn-reset">reset</button>
+    <button class="lvl-reset lvl-step" id="lvl-prev">◀</button>
+    <div class="lvl-stack">
+      <button class="lvl-reset" id="btn-reset">reset</button>
+      <div class="lvl" id="lvl-counter">lvl: 0</div>
+    </div>
+    <button class="lvl-reset lvl-step" id="lvl-next">▶</button>
   </div>
-  <button class="lvl-reset btn-lang" id="btn-lang">EN</button>
+  <div class="top-left-buttons">
+    <button class="lvl-reset btn-lang" id="btn-lang">EN</button>
+    <button class="lvl-reset btn-palette" id="btn-palette">🌙</button>
+  </div>
   <button class="lvl-reset btn-dim" id="btn-dim">3D</button>
   <div class="cam-arrows" id="cam-arrows" style="display:none">
     <button class="cam-btn" id="cam-up">▲</button>
@@ -432,19 +504,24 @@
 <!-- Слайдер угла ψ -->
 <div class="slider-row">
   <span class="slider-label">ψ</span>
-  <input type="range" id="angle-slider" class="angle-slider" min="-450" max="450" step="1" value="30">
+  <input type="range" id="angle-slider" class="angle-slider" min="0" max="360" step="1" value="0">
 </div>
 </div><!-- end canvas-col -->
 
 <!-- Правая панель: кнопки + значения -->
 <div class="right-panel">
   <div class="controls">
-    <button class="btn" id="btn-sin">sin и cos</button>
-    <button class="btn" id="btn-tan">tan</button>
-    <button class="btn" id="btn-cot">cot</button>
-    <button class="btn" id="btn-labels">метки углов</button>
     <button class="btn" id="btn-coords">координаты</button>
-    <button class="btn btn-mode3d" id="btn-mode3d" style="display:none">блины / спираль</button>
+    <button class="btn" id="btn-labels">метки углов</button>
+    <button class="btn" id="btn-sin">sin и cos</button>
+    <div class="tancot-pair">
+      <button class="btn" id="btn-tan">tan</button>
+      <button class="btn" id="btn-cot">ctg</button>
+    </div>
+    <div class="mode3d-pair" id="mode3d-pair" style="display:none">
+      <button class="btn active" id="btn-pancakes">блины</button>
+      <button class="btn" id="btn-spiral">спираль</button>
+    </div>
   </div>
 
 
@@ -459,18 +536,22 @@
     </div>
     <div class="stat-col">
       <div class="stat tan" id="cell-tan"><div class="stat-label">tan ψ</div><div class="stat-value" id="v-tan">1/√3</div></div>
-      <div class="stat cot" id="cell-cot"><div class="stat-label">cot ψ</div><div class="stat-value" id="v-cot">√3</div></div>
+      <div class="stat cot" id="cell-cot"><div class="stat-label" data-i18n="stat-cot">cot ψ</div><div class="stat-value" id="v-cot">√3</div></div>
     </div>
   </div>
 
-  <!-- Режим «Интервал» — задаёт диапазон углов для слайдера/спирали -->
+  <!-- Режим «Интервал» — задаёт диапазон углов для слайдера/спирали.
+       Поля текстовые: можно ввести не только число, но и выражение с π
+       (например «π/2», «-2π/3», «pi/6+pi/3») — см. parseIntervalValue(). -->
   <div class="interval-row" id="interval-row">
     <span class="interval-title" id="interval-title">Интервал</span>
-    <span class="interval-lbl" id="interval-from-lbl">от</span>
-    <input type="number" id="interval-from" class="interval-inp" value="-450">
-    <span class="interval-lbl" id="interval-to-lbl">до</span>
-    <input type="number" id="interval-to" class="interval-inp" value="450">
-    <button class="interval-unit" id="interval-unit">°</button>
+    <div class="interval-fields-row">
+      <span class="interval-lbl" id="interval-from-lbl">от</span>
+      <input type="text" inputmode="text" id="interval-from" class="interval-inp" value="-450">
+      <span class="interval-lbl" id="interval-to-lbl">до</span>
+      <input type="text" inputmode="text" id="interval-to" class="interval-inp" value="450">
+      <button class="interval-unit" id="interval-unit">°</button>
+    </div>
   </div>
 </div><!-- end right-panel -->
 
@@ -549,7 +630,7 @@ const DOM = {
 let W, H, cx, cy, R;
 
 // Текущий угол ψ (накапливается за пределы [0, 2π] при оборотах)
-let angle = Math.PI / 6; // начальное значение: 30°
+let angle = 0; // начальное значение: точка в (1;0), 0°
 
 // Флаги видимости слоёв (по умолчанию всё выключено)
 let showSin    = false;  // отрезки sin/cos на осях координат
@@ -586,6 +667,20 @@ function normalizeAngle(a) {
   return a < 0 ? a + 2 * Math.PI : a;
 }
 
+// Локальная фаза угла внутри окна уровня l: всегда [0, 2π], где 0 — начало
+// обхода, а 2π — замкнутый оборот. normalizeAngle для этого не годится: оба
+// края окна кратны 2π и схлопнулись бы в один и тот же 0, из-за чего «360°»
+// показывалось бы как «0°». Края привязываются точно: на |l| ≥ 10 разность
+// накапливает погрешность ~1e-14 и без привязки срывается на другой край.
+function windowPhase(a, l) {
+  const TP = 2 * Math.PI;
+  let local = a - l * TP;
+  if (local < -1e-6 || local > TP + 1e-6) local = normalizeAngle(a); // lvl разошёлся с углом
+  if (Math.abs(local) < 1e-6) return 0;
+  if (Math.abs(local - TP) < 1e-6) return TP;
+  return Math.max(0, Math.min(TP, local));
+}
+
 // Возвращает строковую метку, если угол близок к табличному (±0.015 рад ≈ 0.86°).
 // Иначе возвращает null.
 function findSpecial(a) {
@@ -608,14 +703,19 @@ function fmt(value, fnName, specialLabel) {
 
 // Форматирует угол в радианах для панели значений.
 // При многократных оборотах добавляет компактный суффикс ±n·2π.
+// Базовая часть — локальная фаза внутри окна уровня: local = a − lvl·2π,
+// она всегда лежит в [0, 2π] независимо от знака lvl, и вместе с суффиксом
+// даёт ровно исходный угол. Для lvl<0 это важно: там начало обхода — это
+// local = 2π (например, «2π−1·2π» = 0), а завершённый оборот — local = 0.
 function radLabel(a) {
-  const norm = normalizeAngle(a);
-  const base = findSpecial(a) || norm.toFixed(2); // 2 знака — компактнее
+  const TP = 2 * Math.PI;
+  const local = windowPhase(a, lvl);
+  const base = local === TP ? '2π'
+             : local === 0  ? '0'
+             : (findSpecial(local) || local.toFixed(2)); // 2 знака — компактнее
   if (lvl === 0) return base;
   if (lvl  > 0)  return base + '+' + lvl + '·2π';
-  const sp = findSpecial(a);
-  if (sp) return sp + '−' + Math.abs(lvl) + '·2π';
-  return norm.toFixed(2) + '−' + Math.abs(lvl) + '·2π';
+  return base + '−' + Math.abs(lvl) + '·2π';
 }
 
 // ════════════════════════════════════════════════
@@ -662,12 +762,19 @@ function dashedToHorizontal(targetY, color) {
 //   CCW в математике = anticlockwise:true в canvas (угол end = -norm)
 //   CW  в математике = anticlockwise:false в canvas (угол end = 2π - norm)
 function drawArc(radius, norm) {
+  const TP = 2 * Math.PI;
+  const clamp = v => Math.max(0, Math.min(TP, v));
   ctx.beginPath();
   if (lvl >= 0) {
-    ctx.arc(cx, cy, radius, 0, -norm, true);  // CCW
+    ctx.arc(cx, cy, radius, 0, -clamp(norm), true);  // CCW
   } else {
-    const cw = (2 * Math.PI - norm) % (2 * Math.PI);
-    ctx.arc(cx, cy, radius, 0, cw || 0, false); // CW
+    // При lvl<0 обход идёт по часовой, и закрашенная доля равна 2π−norm.
+    // Полный оборот здесь — это norm=0 (противоположный край окна, чем при
+    // lvl≥0): обычный модуль (2π−0)%2π дал бы 0, то есть пустую окружность.
+    // Вместо модуля — зажим: при погрешности ~1e-14 модуль давал крошечный
+    // ОТРИЦАТЕЛЬНЫЙ разворот, а canvas рисует такой как полный круг.
+    const cw = norm < 1e-9 ? TP : clamp(TP - norm);
+    ctx.arc(cx, cy, radius, 0, cw, false); // CW
   }
   ctx.stroke();
 }
@@ -690,15 +797,17 @@ const ISO = { tilt: 0.42, levelGap: 0, camY: 0 }; // camY — сдвиг кам�
 const camAnim = { current: 0, target: 0, raf: 0 };
 
 // Анимация рождения витка. birthAnim.lvl — рождающийся виток; t: 0→1.
-// reachedHi/reachedLo — самый дальний нарисованный уровень вверх/вниз:
-// пока не превышен, повторный вход в виток не запускает анимацию.
-// Уровень 0 — особый случай: он единственный, чья геометрия (aStart=0)
-// физически пропадает из рельсов, когда lvl уходит в минус (aEnd=lvl·2π
-// не включает положительный диапазон). Поэтому 0 рождается кольцом
-// заново ТОЛЬКО при возврате с отрицательной стороны — не при спуске
-// с положительной (1→0 и т.п., где 0 никогда не исчезал с экрана).
-const birthAnim = { t: 1, lvl: 0, raf: 0, pause: 0, reachedHi: 0, reachedLo: 0 };
-let prevSpiralLvl = 0; // предыдущий lvl в режиме спирали — для детекта возврата с минуса
+// Геометрия рельсов зависит от ТЕКУЩЕГО lvl, а не от исторического
+// максимума: aEnd = (lvl+1)·2π при lvl≥0, aEnd = lvl·2π при lvl<0.
+// Значит, отступив с уровня 2 на 1, виток 2 физически пропадает из
+// отрисовки — и, поднявшись снова, должен родиться заново, а не молчать
+// как «уже пройденный». Поэтому правило простое: рождение нужно ровно
+// тогда, когда новый lvl показывает то, чего не было видно кадром раньше —
+// то есть при движении дальше от нуля (в любую сторону) или при переходе
+// через ноль (меняется видимая половина целиком). Отступ к нулю — без
+// анимации, мгновенно.
+const birthAnim = { t: 1, lvl: 0, raf: 0, pause: 0 };
+let prevSpiralLvl = 0; // предыдущий lvl в режиме спирали — для сравнения кадров
 function startBirthTurn(newLvl) {
   birthAnim.t = 0;
   birthAnim.lvl = newLvl;
@@ -715,38 +824,140 @@ function startBirthTurn(newLvl) {
 }
 
 // Запускает плавный переезд камеры к целевому уровню.
+// Две меры против укачивания (см. историю правок этого файла):
+//  1) ease-in-out по синусу вместо кубической кривой — пик скорости в
+//     середине движения ниже (~1.57× средней против ~3× у кубической);
+//  2) длительность растёт вместе с дистанцией переезда — иначе прыжок
+//     сразу через несколько уровней (клик по счётчику) летел бы с той же
+//     скоростью по пикселям, что и переход на один уровень, только в
+//     несколько раз быстрее — резкий, укачивающий рывок картинки.
 function animateCamera() {
-  if (camAnim.raf) return; // уже анимируется
-  const step = () => {
-    const diff = camAnim.target - camAnim.current;
-    if (Math.abs(diff) < 0.001) {
-      camAnim.current = camAnim.target;
+  if (camAnim.raf) cancelAnimationFrame(camAnim.raf);
+  const from = camAnim.current;
+  const to   = camAnim.target;
+  const dist = Math.abs(to - from);
+  const duration = Math.min(1300, Math.max(500, 320 * dist)); // мс
+  const t0 = performance.now();
+  const ease = t => 0.5 - 0.5 * Math.cos(Math.PI * t); // ease-in-out sine
+  const step = (now) => {
+    const t = Math.min(1, (now - t0) / duration);
+    camAnim.current = from + (to - from) * ease(t);
+    draw();
+    if (t < 1) {
+      camAnim.raf = requestAnimationFrame(step);
+    } else {
+      camAnim.current = to;
       camAnim.raf = 0;
       draw();
-      return;
     }
-    camAnim.current += diff * 0.03; // ещё мягче: чем меньше, тем плавнее
-    draw();
-    camAnim.raf = requestAnimationFrame(step);
   };
   camAnim.raf = requestAnimationFrame(step);
 }
+// ── Палитры интерфейса ──
+// Цвета, зависящие от фона (оси, засечки, «пройденный путь», обводки) меняются
+// между темами; насыщенные функциональные цвета (sin/cos/tan/cot/точка) и
+// тёплая палитра «блинов» (заливка/бока/кольца/вертикаль) оставлены общими —
+// они одинаково хорошо читаются на любом фоне.
+const PALETTES = {
+  dark: {
+    text: '#c8cfe0', accent: '#7c6dfa',
+    sin: '#3dffa0', cos: '#4db8ff', tan: '#ffaa00', cot: '#ff5fa0', point: '#ff4466',
+    axisMain: '#2a3040', tick2D: '#4a5570', axisLetter: '#8a95b0',
+    cakeAxisBase: '#96a0b4', gridFaint: '#1a1e2a',
+    swept: 'rgba(190,196,222,0.95)', pointStroke: '#ffffff', pointRing: '#ff8899',
+    gold: '#ffc84d', label2D: '#5a6a88', labelWarm3D: 'rgba(150,160,120,0.7)',
+    labelVline: 'rgba(230,200,150,0.95)', rightAngleMark: 'rgba(200,220,255,0.75)',
+    angle: '#9099ac',
+  },
+  light: {
+    text: '#1d2233', accent: '#5b4fd6',
+    sin: '#0e9f68', cos: '#0f7ec4', tan: '#b8720a', cot: '#c23a76', point: '#d81b3f',
+    axisMain: '#7d84a0', tick2D: '#8791a8', axisLetter: '#5f6780',
+    cakeAxisBase: '#5a6478', gridFaint: '#e3e6ee',
+    swept: 'rgba(74,85,112,0.8)', pointStroke: '#20232e', pointRing: '#f0607a',
+    gold: '#c98a10', label2D: '#4b5568', labelWarm3D: 'rgba(120,90,20,0.8)',
+    labelVline: 'rgba(120,80,20,0.9)', rightAngleMark: 'rgba(70,90,140,0.6)',
+    angle: '#5b6478',
+  },
+};
+
+// hex → 'rgba(r,g,b,a)', чтобы задавать разные прозрачности одного базового
+// цвета темы в одном месте, а не хранить отдельный литерал на каждую альфу.
+function withAlpha(hex, a) {
+  hex = hex.replace('#', '');
+  if (hex.length === 3) hex = hex.split('').map(c => c + c).join('');
+  const r = parseInt(hex.slice(0, 2), 16), g = parseInt(hex.slice(2, 4), 16), b = parseInt(hex.slice(4, 6), 16);
+  return `rgba(${r},${g},${b},${a})`;
+}
+
+// Огонёк режима «Интервал»: на тёмном фоне — яркое свечение (радиальный
+// градиент, бледно-жёлтое ядро на прозрачном крае); на светлом фоне такое
+// же свечение попросту не видно (бледный жёлтый на белом = нет контраста),
+// поэтому там вместо свечения — мягкий тёплый ореол вокруг тёмного золотого
+// ядра с белой обводкой, читается как маркер, а не как исчезающий блик.
+function drawGlowMarker(gx, gy) {
+  if (paletteName === 'light') {
+    ctx.beginPath(); ctx.arc(gx, gy, 9, 0, 2 * Math.PI);
+    ctx.fillStyle = withAlpha(THEME.gold, 0.25); ctx.fill();
+    ctx.beginPath(); ctx.arc(gx, gy, 4, 0, 2 * Math.PI);
+    ctx.fillStyle = THEME.gold; ctx.fill();
+    ctx.lineWidth = 1.5; ctx.strokeStyle = THEME.pointStroke; ctx.stroke();
+  } else {
+    const grad = ctx.createRadialGradient(gx, gy, 0, gx, gy, 13);
+    grad.addColorStop(0,   'rgba(255,250,210,1)');
+    grad.addColorStop(0.35,'rgba(255,205,80,0.95)');
+    grad.addColorStop(0.7, 'rgba(255,170,40,0.5)');
+    grad.addColorStop(1,   'rgba(255,150,20,0)');
+    ctx.fillStyle = grad;
+    ctx.beginPath(); ctx.arc(gx, gy, 13, 0, 2 * Math.PI); ctx.fill();
+    ctx.beginPath(); ctx.arc(gx, gy, 3.5, 0, 2 * Math.PI);
+    ctx.fillStyle = '#fffbe0'; ctx.fill();
+  }
+}
+
+let paletteName = (function () {
+  try {
+    const saved = localStorage.getItem('uc-palette');
+    if (saved && PALETTES[saved]) return saved;
+  } catch (e) {}
+  return 'light';
+})();
+const THEME = {};
+
+function applyPalette(name) {
+  if (!PALETTES[name]) return;
+  paletteName = name;
+  Object.assign(THEME, PALETTES[name]);
+  document.documentElement.dataset.palette = name;
+  CAKE.level = withAlpha(THEME.accent, 0.85);      // шкала уровней — акцентный цвет темы
+  CAKE.axis  = withAlpha(THEME.cakeAxisBase, 0.5); // пунктирные оси/засечки в 3D
+  try { localStorage.setItem('uc-palette', name); } catch (e) {}
+  updatePaletteButtonLabel();
+  if (typeof draw === 'function' && W) draw();
+}
+
+// Иконка кнопки палитры: 🌙 при светлой теме (клик — переключит на тёмную),
+// ☀️ при тёмной (клик — переключит на светлую). Не зависит от языка —
+// вызывается и из applyPalette() (сменили тему), и из applyLang() (сменили
+// язык, чтобы title/aria обновились, если их добавят позже).
+function updatePaletteButtonLabel() {
+  const btn = document.getElementById('btn-palette');
+  if (!btn) return;
+  btn.textContent = paletteName === 'light' ? '🌙' : '☀️';
+}
+
 let spiralMode = false; // false = блины (дискретно), true = спираль (непрерывно)
 
-// Палитра «торта» (по скриншотам)
+// Палитра «торта» — тёплые тона блинов одинаковы в любой теме (см. выше);
+// level/axis переопределяются в applyPalette() под текущую тему.
 const CAKE = {
   fill:      'rgba(180,130,74,0.42)',   // тёплая коричневая заливка блина (верх)
   fillHi:    'rgba(200,150,88,0.55)',   // текущий блин чуть ярче
-  side:      'rgba(140,98,52,0.55)',    // боковая стенка блина (темнее верха)
-  sideHi:    'rgba(165,118,64,0.62)',   // боковая стенка текущего блина
   ring:      '#e88a7e',                 // ЕДИНЫЙ цвет всех окружностей/колец (тёплый коралл)
-  rim:       'rgba(217,167,96,0.9)',    // (не используется для колец — оставлено для совместимости)
-  ringCur:   '#f2646f',
-  ringBase:  'rgba(91,143,199,0.9)',
   vline:     'rgba(217,154,78,0.9)',    // вертикаль «один угол, разные обороты»
   vdot:      '#c8853f',                 // точки на вертикали (блины)
-  level:     'rgba(94,234,212,0.85)',   // шкала уровней — бирюзовая
-  axis:      'rgba(150,160,180,0.5)',   // оси x/y
+  level:     'rgba(124,109,250,0.85)',  // переопределяется в applyPalette()
+  axis:      'rgba(150,160,180,0.5)',   // переопределяется в applyPalette()
 };
 
 // Проецирует 3D-точку окружности (x,y ∈[-1..1], z — высота px) на экран.
@@ -781,29 +992,16 @@ function draw3D() {
   const ox = W / 2, r = W * 0.28, gap = ISO.levelGap;
   const turns   = angle / (2 * Math.PI);
 
-  // Рождение витка: только для впервые достигнутого уровня (за пределами
-  // reachedHi/reachedLo). Уровень 0 — «домашняя точка»: каждый приход в неё
-  // обнуляет память о пройденных уровнях (независимо от стороны прихода),
-  // поэтому повторный такой же поход снова покажет рождение колец. Само
-  // кольцо 0 при этом рождается заново только если пришли с отрицательного
-  // lvl — только тогда оно физически не рисовалось (см. комментарий выше).
-  if (spiralMode) {
-    if (lvl === 0) {
-      if (prevSpiralLvl < 0) {
-        startBirthTurn(0);
-      } else if (birthAnim.lvl !== 0) {
-        birthAnim.lvl = 0; birthAnim.t = 1;
-      }
-      birthAnim.reachedHi = 0;
-      birthAnim.reachedLo = 0;
-    } else if (lvl > birthAnim.reachedHi) {
-      birthAnim.reachedHi = lvl;
+  // Рождение витка: срабатывает, когда текущий кадр показывает то, чего не
+  // было видно в предыдущем — то есть при движении дальше от нуля (в любую
+  // сторону) или при пересечении нуля (там видимая половина меняется
+  // целиком). Отступ к нулю — мгновенно, без анимации.
+  if (spiralMode && lvl !== prevSpiralLvl) {
+    const p = prevSpiralLvl;
+    const reveals = (lvl >= 0) ? (p < 0 || lvl > p) : (p >= 0 || lvl < p);
+    if (reveals) {
       startBirthTurn(lvl);
-    } else if (lvl < birthAnim.reachedLo) {
-      birthAnim.reachedLo = lvl;
-      startBirthTurn(lvl);
-    } else if (lvl !== birthAnim.lvl) {
-      // Уже пройденная территория в рамках текущего похода — без анимации.
+    } else {
       birthAnim.lvl = lvl;
       birthAnim.t = 1;
     }
@@ -862,7 +1060,7 @@ function draw3D() {
   // так шкала всегда у левого края и не наезжает на блины.
   const scaleX = 34; // отступ от левого края канваса
   const levelScreenY = lv => oy - lv * gap; // экранная Y уровня (z вверх)
-  ctx.strokeStyle = '#2a3040'; ctx.lineWidth = 1.5;
+  ctx.strokeStyle = THEME.axisMain; ctx.lineWidth = 1.5;
   ctx.beginPath();
   ctx.moveTo(scaleX, levelScreenY(hiLevel));
   ctx.lineTo(scaleX, levelScreenY(loLevel));
@@ -898,9 +1096,18 @@ function draw3D() {
   ctx.setLineDash([]);
   drawArrowHead(xxE, xyE, x0, y0);
   drawArrowHead(yxE, yyE, x0, y0);
-  ctx.fillStyle = '#8a95b0'; ctx.font = FONT_ITALIC;
-  ctx.fillText('x', xxE + 6, xyE - 2);
-  ctx.fillText('y', yxE - 16, yyE - 2);
+  ctx.font = FONT_ITALIC;
+  if (showSin) {
+    // Слой sin/cos включён — оси подписаны своими проекциями и их цветами.
+    ctx.fillStyle = THEME.cos;
+    ctx.fillText('cos ψ', xxE + 6, xyE - 2);
+    ctx.fillStyle = THEME.sin;
+    ctx.fillText('sin ψ', yxE - 16 - ctx.measureText('sin ψ').width + ctx.measureText('y').width, yyE - 2);
+  } else {
+    ctx.fillStyle = THEME.axisLetter;
+    ctx.fillText('x', xxE + 6, xyE - 2);
+    ctx.fillText('y', yxE - 16, yyE - 2);
+  }
 
   const vx = Math.cos(angle), vy = Math.sin(angle);
 
@@ -927,7 +1134,7 @@ function draw3D() {
     ctx.beginPath(); ctx.moveTo(g1x, g1y); ctx.lineTo(g2x, g2y); ctx.stroke();
     ctx.setLineDash([]);
     // еле заметная метка точки (1;0) на каждом витке
-    ctx.fillStyle = 'rgba(170,180,200,0.65)';
+    ctx.fillStyle = withAlpha(THEME.cakeAxisBase,0.65);
     for (let lv = loLevel; lv <= hiLevel; lv++) {
       const [mx, my] = project(1, 0, lv * gap, ox, oy, r);
       ctx.beginPath(); ctx.arc(mx, my, 2.8, 0, 2*Math.PI); ctx.fill();
@@ -944,7 +1151,7 @@ function draw3D() {
   // Точки-блины на вертикали + подпись угла — только в режиме блинов
   // (в спирали точка едет по непрерывной винтовой, дискретных уровней нет).
   if (!spiralMode) {
-    const baseDeg = Math.round(normalizeAngle(angle) * 180 / Math.PI);
+    const baseDeg = Math.round(windowPhase(angle, lvl) * 180 / Math.PI);
     ctx.font = "600 11px 'JetBrains Mono', monospace";
     for (let lv = loLevel; lv <= hiLevel; lv++) {
       const [dx, dy] = project(vx, vy, lv * gap, ox, oy, r);
@@ -952,8 +1159,10 @@ function draw3D() {
       ctx.globalAlpha = isCur ? 1 : 0.4;
       ctx.beginPath(); ctx.arc(dx, dy, 3.5, 0, 2*Math.PI);
       ctx.fillStyle = CAKE.vdot; ctx.fill();
+      // baseDeg — фаза внутри окна (0..360), поэтому абсолютный угол на
+      // уровне lv получается прибавлением его собственных оборотов.
       const degOnLvl = baseDeg + lv * 360;
-      ctx.fillStyle = 'rgba(230,200,150,0.95)';
+      ctx.fillStyle = THEME.labelVline;
       ctx.fillText(degOnLvl + '°', dx + 18, dy - 6);
     }
     ctx.globalAlpha = 1;
@@ -963,13 +1172,13 @@ function draw3D() {
   if (showLabels) {
     ctx.font = "10px 'JetBrains Mono', monospace";
     ctx.fillStyle = '#7a8500';
-    ctx.fillStyle = 'rgba(150,160,120,0.7)';
+    ctx.fillStyle = THEME.labelWarm3D;
     for (const [tx, ty, label] of TICK_DATA) {
       const [lx, ly] = project(tx * 1.18, ty * 1.18, zPoint, ox, oy, r);
       ctx.fillText(label, lx - ctx.measureText(label).width/2, ly + 4);
     }
     // короткие засечки на окружности блина
-    ctx.strokeStyle = 'rgba(150,160,180,0.4)'; ctx.lineWidth = 1.2;
+    ctx.strokeStyle = withAlpha(THEME.cakeAxisBase,0.4); ctx.lineWidth = 1.2;
     for (const [tx, ty] of TICK_DATA) {
       const [ax, ay] = project(tx * 0.95, ty * 0.95, zPoint, ox, oy, r);
       const [bx, by] = project(tx * 1.05, ty * 1.05, zPoint, ox, oy, r);
@@ -984,24 +1193,30 @@ function draw3D() {
     const tanV = sinA0 / cosA0;
     const [t1x, t1y] = project(1, -1.3, zPoint, ox, oy, r);
     const [t2x, t2y] = project(1,  1.3, zPoint, ox, oy, r);
-    ctx.strokeStyle = 'rgba(255,170,0,0.4)'; ctx.lineWidth = 1.5;
+    ctx.strokeStyle = withAlpha(THEME.tan,0.4); ctx.lineWidth = 1.5;
     ctx.setLineDash([5,5]);
     ctx.beginPath(); ctx.moveTo(t1x,t1y); ctx.lineTo(t2x,t2y); ctx.stroke();
     ctx.setLineDash([]);
     // пунктир вдоль радиуса от точки до пересечения с осью x=1
     const [prx, pry] = project(cosA0, sinA0, zPoint, ox, oy, r);
     const [ix, iy]   = project(1, tanV, zPoint, ox, oy, r);
-    ctx.strokeStyle = 'rgba(255,170,0,0.3)'; ctx.lineWidth = 1;
+    ctx.strokeStyle = withAlpha(THEME.tan,0.3); ctx.lineWidth = 1;
     ctx.setLineDash([3,5]);
     ctx.beginPath(); ctx.moveTo(prx, pry); ctx.lineTo(ix, iy); ctx.stroke();
     ctx.setLineDash([]);
     drawArrowHead(t2x, t2y, t1x, t1y);
-    ctx.fillStyle = 'rgba(255,170,0,0.95)'; ctx.font = FONT_ITALIC;
-    ctx.fillText('tan ψ', t2x + 6, t2y);
+    ctx.fillStyle = withAlpha(THEME.tan,0.95); ctx.font = FONT_ITALIC;
+    // Ось тангенсов параллельна оси y, поэтому подпись ставится с той же
+    // стороны от стрелки, что и «sin ψ» у оси y (слева, с выравниванием по
+    // правому краю) — иначе она уезжает вправо и налезает на точку.
+    {
+      const lbl = 'tan ψ';
+      ctx.fillText(lbl, t2x - 6 - ctx.measureText(lbl).width, t2y - 2);
+    }
     const tv = Math.max(-1.3, Math.min(1.3, tanV));
     const [ta,tb] = project(1, 0, zPoint, ox, oy, r);
     const [tc,td] = project(1, tv, zPoint, ox, oy, r);
-    ctx.strokeStyle = 'rgba(255,170,0,0.95)'; ctx.lineWidth = 3;
+    ctx.strokeStyle = withAlpha(THEME.tan,0.95); ctx.lineWidth = 3;
     ctx.beginPath(); ctx.moveTo(ta,tb); ctx.lineTo(tc,td); ctx.stroke();
   }
 
@@ -1010,24 +1225,24 @@ function draw3D() {
     const cotV = cosA0 / sinA0;
     const [c1x, c1y] = project(-1.3, 1, zPoint, ox, oy, r);
     const [c2x, c2y] = project( 1.3, 1, zPoint, ox, oy, r);
-    ctx.strokeStyle = 'rgba(255,95,160,0.4)'; ctx.lineWidth = 1.5;
+    ctx.strokeStyle = withAlpha(THEME.cot,0.4); ctx.lineWidth = 1.5;
     ctx.setLineDash([5,5]);
     ctx.beginPath(); ctx.moveTo(c1x,c1y); ctx.lineTo(c2x,c2y); ctx.stroke();
     ctx.setLineDash([]);
     // пунктир вдоль радиуса от точки до пересечения с осью y=1
     const [prx, pry] = project(cosA0, sinA0, zPoint, ox, oy, r);
     const [ix, iy]   = project(cotV, 1, zPoint, ox, oy, r);
-    ctx.strokeStyle = 'rgba(255,95,160,0.3)'; ctx.lineWidth = 1;
+    ctx.strokeStyle = withAlpha(THEME.cot,0.3); ctx.lineWidth = 1;
     ctx.setLineDash([3,5]);
     ctx.beginPath(); ctx.moveTo(prx, pry); ctx.lineTo(ix, iy); ctx.stroke();
     ctx.setLineDash([]);
     drawArrowHead(c2x, c2y, c1x, c1y);
-    ctx.fillStyle = 'rgba(255,95,160,0.95)'; ctx.font = FONT_ITALIC;
-    ctx.fillText('cot ψ', c2x + 6, c2y);
+    ctx.fillStyle = withAlpha(THEME.cot,0.95); ctx.font = FONT_ITALIC;
+    ctx.fillText(lang === 'ru' ? 'ctg ψ' : 'cot ψ', c2x + 6, c2y);
     const cv = Math.max(-1.3, Math.min(1.3, cotV));
     const [ca,cb] = project(0, 1, zPoint, ox, oy, r);
     const [cc,cd] = project(cv, 1, zPoint, ox, oy, r);
-    ctx.strokeStyle = 'rgba(255,95,160,0.95)'; ctx.lineWidth = 3;
+    ctx.strokeStyle = withAlpha(THEME.cot,0.95); ctx.lineWidth = 3;
     ctx.beginPath(); ctx.moveTo(ca,cb); ctx.lineTo(cc,cd); ctx.stroke();
   }
 
@@ -1037,14 +1252,14 @@ function draw3D() {
     const [ftX, ftY] = project(cosA0, 0, zPoint, ox, oy, r);
     const [orX, orY] = project(0, 0, zPoint, ox, oy, r);
     ctx.lineWidth = 2.5;
-    ctx.strokeStyle = '#4db8ff'; // cos — катет по x
+    ctx.strokeStyle = THEME.cos; // cos — катет по x
     ctx.beginPath(); ctx.moveTo(orX,orY); ctx.lineTo(ftX,ftY); ctx.stroke();
-    ctx.strokeStyle = '#3dffa0'; // sin — катет по y
+    ctx.strokeStyle = THEME.sin; // sin — катет по y
     ctx.beginPath(); ctx.moveTo(ftX,ftY); ctx.lineTo(ptX,ptY); ctx.stroke();
     ctx.font = FONT_ITALIC;
-    ctx.fillStyle = '#4db8ff';
+    ctx.fillStyle = THEME.cos;
     ctx.fillText('cos ψ', (orX+ftX)/2 - 14, (orY+ftY)/2 + 14);
-    ctx.fillStyle = '#3dffa0';
+    ctx.fillStyle = THEME.sin;
     ctx.fillText('sin ψ', (ftX+ptX)/2 + 6, (ftY+ptY)/2);
   }
 
@@ -1052,7 +1267,7 @@ function draw3D() {
   // На пройденных блинах (полный оборот уже намотан) — полная серая окружность.
   // На текущем блине — дуга от 0° до ψ (в нужном направлении, как в 2D).
   if (!spiralMode) {
-    ctx.strokeStyle = 'rgba(190,196,222,0.95)'; ctx.lineWidth = 3.5;
+    ctx.strokeStyle = CAKE.ring; ctx.lineWidth = 3.5;
     ctx.lineCap = 'round';
     // Полные серые окружности — на ПОЛНОСТЬЮ пройденных блинах (в обе стороны).
     // Пройденный диапазон углов = [min(0,angle), max(0,angle)].
@@ -1089,7 +1304,7 @@ function draw3D() {
   // ── Радиус-вектор + точка A на её уровне ──
   const [cxp, cyp] = project(0, 0, zPoint, ox, oy, r);
   const [pxp, pyp] = project(vx, vy, zPoint, ox, oy, r);
-  ctx.strokeStyle = 'rgba(190,196,222,0.95)'; ctx.lineWidth = 2.5;
+  ctx.strokeStyle = CAKE.ring; ctx.lineWidth = 2.5;
   ctx.beginPath(); ctx.moveTo(cxp, cyp); ctx.lineTo(pxp, pyp); ctx.stroke();
 
   // sin/cos — отрезки НА ОСЯХ блина (как в 2D): cos вдоль оси x, sin вдоль оси y.
@@ -1098,25 +1313,25 @@ function draw3D() {
     const [sinEndX, sinEndY] = project(0, vy, zPoint, ox, oy, r); // конец sin на оси y
     // отрезок cos на оси x
     ctx.lineWidth = 3.5; ctx.lineCap = 'round';
-    ctx.strokeStyle = '#4db8ff';
+    ctx.strokeStyle = THEME.cos;
     ctx.beginPath(); ctx.moveTo(cxp, cyp); ctx.lineTo(cosEndX, cosEndY); ctx.stroke();
     // отрезок sin на оси y
-    ctx.strokeStyle = '#3dffa0';
+    ctx.strokeStyle = THEME.sin;
     ctx.beginPath(); ctx.moveTo(cxp, cyp); ctx.lineTo(sinEndX, sinEndY); ctx.stroke();
     ctx.lineCap = 'butt';
     // пунктирные проекции от точки к осям
     ctx.lineWidth = 1; ctx.setLineDash([3,5]);
-    ctx.strokeStyle = 'rgba(77,184,255,0.35)';
+    ctx.strokeStyle = withAlpha(THEME.cos,0.35);
     ctx.beginPath(); ctx.moveTo(pxp, pyp); ctx.lineTo(cosEndX, cosEndY); ctx.stroke(); // к оси x
-    ctx.strokeStyle = 'rgba(61,255,160,0.35)';
+    ctx.strokeStyle = withAlpha(THEME.sin,0.35);
     ctx.beginPath(); ctx.moveTo(pxp, pyp); ctx.lineTo(sinEndX, sinEndY); ctx.stroke(); // к оси y
     ctx.setLineDash([]);
   }
 
   // Точка (полупрозрачная — виден край блина под ней)
   ctx.beginPath(); ctx.arc(pxp, pyp, 8, 0, 2*Math.PI);
-  ctx.fillStyle = 'rgba(255,68,102,0.55)'; ctx.fill();
-  ctx.strokeStyle = '#ff8899'; ctx.lineWidth = 2; ctx.stroke();
+  ctx.fillStyle = withAlpha(THEME.point,0.55); ctx.fill();
+  ctx.strokeStyle = THEME.pointRing; ctx.lineWidth = 2; ctx.stroke();
 
   // ── Режим «Интервал»: путь A→B, точки A, B и бегущий огонёк ──
   if (intervalOn) {
@@ -1130,7 +1345,7 @@ function draw3D() {
       // здесь рисуем путь по дугам блинов (для режима «блины»).
       if (!spiralMode) {
         const lo = Math.min(aRad, bRad), hi = Math.max(aRad, bRad);
-        ctx.strokeStyle = '#ffc84d'; ctx.lineWidth = 3.5; ctx.lineCap = 'round';
+        ctx.strokeStyle = THEME.gold; ctx.lineWidth = 3.5; ctx.lineCap = 'round';
         const pathSteps = Math.max(4, Math.round((hi - lo) / (2*Math.PI) * 96));
         ctx.beginPath();
         let started = false;
@@ -1155,27 +1370,17 @@ function draw3D() {
         const [sx, sy] = project(Math.cos(g), Math.sin(g), zAt(g), ox, oy, r);
         ctx.beginPath(); ctx.arc(sx, sy, 7, 0, 2*Math.PI);
         ctx.fillStyle = color; ctx.fill();
-        ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
-        ctx.fillStyle = '#fff'; ctx.font = FONT_ITALIC;
+        ctx.strokeStyle = THEME.pointStroke; ctx.lineWidth = 1.5; ctx.stroke();
+        ctx.fillStyle = THEME.pointStroke; ctx.font = FONT_ITALIC;
         ctx.fillText(label, sx + 10, sy + 4);
       };
-      drawAB(aRad, 'A', '#3dffa0');
-      drawAB(bRad, 'B', '#4db8ff');
+      drawAB(aRad, 'A', withAlpha(THEME.point,0.55));
+      drawAB(bRad, 'B', withAlpha(THEME.point,0.55));
 
       // огонёк бежит от A до B по пути (glowT ∈ 0..1)
       const g = aRad + (bRad - aRad) * glowT;
       const [gx, gy] = project(Math.cos(g), Math.sin(g), zAt(g), ox, oy, r);
-      // свечение (радиальный градиент) — ярче и золотистее
-      const grad = ctx.createRadialGradient(gx, gy, 0, gx, gy, 13);
-      grad.addColorStop(0,   'rgba(255,250,210,1)');
-      grad.addColorStop(0.35,'rgba(255,205,80,0.95)');
-      grad.addColorStop(0.7, 'rgba(255,170,40,0.5)');
-      grad.addColorStop(1,   'rgba(255,150,20,0)');
-      ctx.fillStyle = grad;
-      ctx.beginPath(); ctx.arc(gx, gy, 13, 0, 2*Math.PI); ctx.fill();
-      // ядро огонька
-      ctx.beginPath(); ctx.arc(gx, gy, 3.5, 0, 2*Math.PI);
-      ctx.fillStyle = '#fffbe0'; ctx.fill();
+      drawGlowMarker(gx, gy);
     }
   }
 
@@ -1211,13 +1416,13 @@ function drawPancakes(ox, oy, r, gap, lo, hi, cur) {
     ctx.globalAlpha = (lv === cur && cur !== 0 && !intervalOn) ? fade : 1;
     pancakePath(ox, oy, r, z);
     if (lv === 0) {
-      ctx.strokeStyle = CAKE.ring; ctx.lineWidth = 2; ctx.stroke();
+      ctx.strokeStyle = THEME.swept; ctx.lineWidth = 2; ctx.stroke();
     } else if (lv === cur) {
       ctx.fillStyle = CAKE.fillHi; ctx.fill();
-      ctx.strokeStyle = CAKE.ring; ctx.lineWidth = 3; ctx.stroke();
+      ctx.strokeStyle = THEME.swept; ctx.lineWidth = 3; ctx.stroke();
     } else {
       ctx.fillStyle = CAKE.fill; ctx.fill();
-      ctx.strokeStyle = CAKE.ring; ctx.lineWidth = 1.5; ctx.stroke();
+      ctx.strokeStyle = THEME.swept; ctx.lineWidth = 1.5; ctx.stroke();
     }
   }
   ctx.restore();
@@ -1266,11 +1471,12 @@ function drawSpiralBody(ox, oy, r, gap, turns) {
     if (b) { goldLo = Math.min(b[0], b[1]); goldHi = Math.max(b[0], b[1]); }
   }
   const colorAt = a => {
-    // Приоритет: золотой интервал A→B выше серого следа, чтобы весь выбранный
-    // путь был виден целиком; затем серый (пройдено); затем коралловый (впереди).
-    if (goldLo !== null && a >= goldLo - 1e-9 && a <= goldHi + 1e-9) return '#ffc84d'; // интервал
-    if (a >= sweptLo - 1e-9 && a <= sweptHi + 1e-9) return 'rgba(190,196,222,0.95)'; // пройдено
-    return CAKE.ring; // рельсы впереди
+    // Приоритет: золотой интервал A→B выше кораллового следа, чтобы весь
+    // выбранный путь был виден целиком; затем коралловый (пройдено); затем
+    // серый (впереди).
+    if (goldLo !== null && a >= goldLo - 1e-9 && a <= goldHi + 1e-9) return THEME.gold; // интервал
+    if (a >= sweptLo - 1e-9 && a <= sweptHi + 1e-9) return CAKE.ring; // пройдено
+    return THEME.swept; // рельсы впереди
   };
 
   ctx.lineWidth = 3;
@@ -1320,10 +1526,12 @@ function draw() {
   py = cy - R * sinA;
 
   const special = findSpecial(angle);
-  const norm    = normalizeAngle(angle);
+  // Доля намотанного оборота внутри окна уровня; направление обхода (знак
+  // lvl) учитывает drawArc.
+  const norm = windowPhase(angle, lvl);
 
   // ── 1. Сетка (пунктирные вспомогательные линии) ──
-  ctx.strokeStyle = '#1a1e2a';
+  ctx.strokeStyle = THEME.gridFaint;
   ctx.lineWidth = 1;
   ctx.setLineDash([4, 6]);
   ctx.beginPath(); ctx.moveTo(0, cy); ctx.lineTo(W, cy); ctx.stroke();
@@ -1331,22 +1539,22 @@ function draw() {
   ctx.setLineDash([]);
 
   // ── 2. Оси координат X и Y ──
-  ctx.strokeStyle = '#2a3040';
+  ctx.strokeStyle = THEME.axisMain;
   ctx.lineWidth = 1.5;
   ctx.beginPath(); ctx.moveTo(8, cy); ctx.lineTo(W-8, cy); ctx.stroke();
   ctx.beginPath(); ctx.moveTo(cx, 8); ctx.lineTo(cx, H-8); ctx.stroke();
-  ctx.fillStyle = '#2a3040';
+  ctx.fillStyle = THEME.axisMain;
   drawArrow(W-8, cy, 'r');
   drawArrow(cx,  8,  'u');
 
   // ── 3. Единичная окружность ──
-  ctx.strokeStyle = CAKE.ring;
+  ctx.strokeStyle = THEME.swept;
   ctx.lineWidth = 1.5;
   ctx.beginPath(); ctx.arc(cx, cy, R, 0, 2*Math.PI); ctx.stroke();
 
   // ── 4. Засечки в табличных углах ──
   // Используем предвычисленные TICK_DATA — cos/sin уже посчитаны при загрузке.
-  ctx.strokeStyle = '#4a5570';
+  ctx.strokeStyle = THEME.tick2D;
   ctx.lineWidth = 1.5;
   for (const [tx, ty] of TICK_DATA) {
     ctx.beginPath();
@@ -1355,17 +1563,17 @@ function draw() {
     ctx.stroke();
   }
 
-  // ── 5. Серая дуга = длина дуги = угол в радианах ──
+  // ── 5. Коралловая дуга = длина дуги = угол в радианах ──
   // На единичной окружности r=1, поэтому длина дуги = угол в радианах.
   // Это наглядно показывает физический смысл радиана.
-  ctx.strokeStyle = 'rgba(190,196,222,0.95)';
+  ctx.strokeStyle = CAKE.ring;
   ctx.lineWidth = 3.5;
   ctx.lineCap = 'round';
   drawArc(R, norm);
   ctx.lineCap = 'butt';
 
   // ── 6. Малая пунктирная дуга угла ψ (у центра) ──
-  ctx.strokeStyle = 'rgba(124,109,250,0.5)';
+  ctx.strokeStyle = withAlpha(THEME.angle,0.5);
   ctx.lineWidth = 1.5;
   ctx.setLineDash([3, 4]);
   drawArc(R * 0.18, norm);
@@ -1380,24 +1588,24 @@ function draw() {
     const cotX    = cx + R * (cosA / sinA); // x-координата конца отрезка
     const cotAxisY = cy - R;                // canvas y для y=1 в математике
 
-    ctx.strokeStyle = 'rgba(255,95,160,0.4)';
+    ctx.strokeStyle = withAlpha(THEME.cot,0.4);
     ctx.lineWidth = 1.5;
     ctx.setLineDash([5, 5]);
     ctx.beginPath(); ctx.moveTo(10, cotAxisY); ctx.lineTo(W-10, cotAxisY); ctx.stroke();
     ctx.setLineDash([]);
 
-    ctx.fillStyle = 'rgba(255,95,160,0.55)';
+    ctx.fillStyle = withAlpha(THEME.cot,0.55);
     ctx.beginPath(); ctx.moveTo(W-8,cotAxisY); ctx.lineTo(W-15,cotAxisY-3); ctx.lineTo(W-15,cotAxisY+3); ctx.closePath(); ctx.fill();
 
-    ctx.strokeStyle = 'rgba(255,95,160,0.9)';
+    ctx.strokeStyle = withAlpha(THEME.cot,0.9);
     ctx.lineWidth = 2.5;
     ctx.beginPath(); ctx.moveTo(cx, cotAxisY); ctx.lineTo(cotX, cotAxisY); ctx.stroke();
 
-    dashedToHorizontal(cotAxisY, 'rgba(255,95,160,0.3)');
+    dashedToHorizontal(cotAxisY, withAlpha(THEME.cot,0.3));
 
-    ctx.fillStyle = 'rgba(255,95,160,0.9)';
+    ctx.fillStyle = withAlpha(THEME.cot,0.9);
     ctx.font = FONT_ITALIC;
-    ctx.fillText('cot ψ', W-52, cotAxisY-6);
+    ctx.fillText(lang === 'ru' ? 'ctg ψ' : 'cot ψ', W-52, cotAxisY-6);
   }
 
   // ── 9. Ось тангенсов (вертикаль x = 1) ──
@@ -1407,31 +1615,31 @@ function draw() {
     const tanY      = cy - R * tanA;
     const tanYclamp = Math.max(4, Math.min(H-4, tanY));
 
-    ctx.strokeStyle = 'rgba(255,170,0,0.4)';
+    ctx.strokeStyle = withAlpha(THEME.tan,0.4);
     ctx.lineWidth = 1.5;
     ctx.setLineDash([5, 5]);
     ctx.beginPath(); ctx.moveTo(tanAxisX, 10); ctx.lineTo(tanAxisX, H-10); ctx.stroke();
     ctx.setLineDash([]);
 
-    ctx.fillStyle = 'rgba(255,170,0,0.55)';
+    ctx.fillStyle = withAlpha(THEME.tan,0.55);
     ctx.beginPath(); ctx.moveTo(tanAxisX,8); ctx.lineTo(tanAxisX-3,15); ctx.lineTo(tanAxisX+3,15); ctx.closePath(); ctx.fill();
 
-    ctx.strokeStyle = 'rgba(255,170,0,0.9)';
+    ctx.strokeStyle = withAlpha(THEME.tan,0.9);
     ctx.lineWidth = 2.5;
     ctx.save();
     ctx.beginPath(); ctx.rect(0, 0, W, H); ctx.clip();
     ctx.beginPath(); ctx.moveTo(tanAxisX, cy); ctx.lineTo(tanAxisX, tanYclamp); ctx.stroke();
     ctx.restore();
 
-    dashedToVertical(tanAxisX, 'rgba(255,170,0,0.3)');
+    dashedToVertical(tanAxisX, withAlpha(THEME.tan,0.3));
 
-    ctx.fillStyle = 'rgba(255,170,0,0.9)';
+    ctx.fillStyle = withAlpha(THEME.tan,0.9);
     ctx.font = FONT_ITALIC;
     ctx.fillText('tan ψ', tanAxisX+5, 22);
   }
 
   // ── 10. Радиус-вектор r = 1 ──
-  ctx.strokeStyle = 'rgba(190,196,222,0.95)';
+  ctx.strokeStyle = CAKE.ring;
   ctx.lineWidth = 2;
   ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(px, py); ctx.stroke();
 
@@ -1442,7 +1650,7 @@ function draw() {
     ctx.save();
     ctx.translate((cx+px)/2 + dy/len*10, (cy+py)/2 - dx/len*10);
     ctx.rotate(Math.atan2(dy, dx));
-    ctx.fillStyle = 'rgba(200,207,224,0.55)';
+    ctx.fillStyle = CAKE.ring;
     ctx.font = "500 10px 'JetBrains Mono', monospace";
     ctx.textAlign = 'center';
     ctx.fillText('r=1', 0, 0);
@@ -1458,12 +1666,12 @@ function draw() {
   // вписанного в единичную окружность.
   if (showCoords) {
     // Вертикальный катет = sin ψ (от оси X до точки P)
-    ctx.strokeStyle = '#3dffa0';
+    ctx.strokeStyle = THEME.sin;
     ctx.lineWidth = 2.5;
     ctx.beginPath(); ctx.moveTo(px, cy); ctx.lineTo(px, py); ctx.stroke();
 
     // Горизонтальный катет = cos ψ (от начала координат до проекции P на X)
-    ctx.strokeStyle = '#4db8ff';
+    ctx.strokeStyle = THEME.cos;
     ctx.lineWidth = 2.5;
     ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(px, cy); ctx.stroke();
 
@@ -1471,7 +1679,7 @@ function draw() {
     const s  = 9;
     const dx = cosA >= 0 ? -s : s;
     const dy = sinA >= 0 ? -s : s;
-    ctx.strokeStyle = 'rgba(200,220,255,0.75)';
+    ctx.strokeStyle = THEME.rightAngleMark;
     ctx.lineWidth = 1.5;
     ctx.beginPath();
     ctx.moveTo(px+dx, cy);
@@ -1481,9 +1689,9 @@ function draw() {
 
     // Подписи катетов
     ctx.font = FONT_ITALIC; // установлен один раз для обоих режимов
-    ctx.fillStyle = '#3dffa0';
+    ctx.fillStyle = THEME.sin;
     ctx.fillText('sin ψ', cosA >= 0 ? px+6 : px-42, (cy+py)/2+4);
-    ctx.fillStyle = '#4db8ff';
+    ctx.fillStyle = THEME.cos;
     const cosLbl = 'cos ψ';
     ctx.fillText(cosLbl, (cx+px)/2 - cosLblW/2, sinA >= 0 ? cy+15 : cy-5);
   }
@@ -1495,28 +1703,34 @@ function draw() {
 
     ctx.lineWidth = 3;
     ctx.lineCap = 'round';
-    ctx.strokeStyle = '#3dffa0';
+    ctx.strokeStyle = THEME.sin;
     ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx, sinEndY); ctx.stroke();
-    ctx.strokeStyle = '#4db8ff';
+    ctx.strokeStyle = THEME.cos;
     ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cosEndX, cy); ctx.stroke();
     ctx.lineCap = 'butt';
 
     // Пунктирные проекции от точки P до осей
     ctx.lineWidth = 1;
     ctx.setLineDash([3, 5]);
-    ctx.strokeStyle = 'rgba(61,255,160,0.25)';
+    ctx.strokeStyle = withAlpha(THEME.sin,0.25);
     ctx.beginPath(); ctx.moveTo(cx, py); ctx.lineTo(px, py); ctx.stroke();
-    ctx.strokeStyle = 'rgba(77,184,255,0.25)';
+    ctx.strokeStyle = withAlpha(THEME.cos,0.25);
     ctx.beginPath(); ctx.moveTo(px, cy); ctx.lineTo(px, py); ctx.stroke();
     ctx.setLineDash([]);
 
     // Фиксированные подписи у концов осей
     ctx.font = FONT_ITALIC;
-    ctx.fillStyle = '#3dffa0';
+    ctx.fillStyle = THEME.sin;
     ctx.fillText('sin ψ', cx+6, 22);
-    ctx.fillStyle = '#4db8ff';
+    ctx.fillStyle = THEME.cos;
     const cosLbl = 'cos ψ';
     ctx.fillText(cosLbl, W - cosLblW - 8, cy-6);
+  } else {
+    // Слой sin/cos выключен — оси подписаны обычными x и y.
+    ctx.font = FONT_ITALIC;
+    ctx.fillStyle = THEME.axisLetter;
+    ctx.fillText('y', cx+6, 22);
+    ctx.fillText('x', W - ctx.measureText('x').width - 8, cy-6);
   }
 
   // ── 13. Метка угла ψ у дуги ──
@@ -1525,15 +1739,15 @@ function draw() {
     const mid = angle / 2;
     const r   = R * 0.22;
     const lbl = lvl === 0 ? 'ψ' : lvl > 0 ? 'ψ+' + lvl + '·2π' : 'ψ' + lvl + '·2π';
-    ctx.fillStyle = 'rgba(200,207,224,0.7)';
+    ctx.fillStyle = withAlpha(THEME.text,0.7);
     ctx.font = "italic 14px 'Crimson Pro', serif";
     ctx.fillText(lbl, cx + r*Math.cos(mid) - 4, cy - r*Math.sin(mid) + 5);
   }
 
   // ── 14. Точка P на окружности (полупрозрачная, как в 3D) ──
   ctx.beginPath(); ctx.arc(px, py, 7, 0, 2*Math.PI);
-  ctx.fillStyle = 'rgba(255,68,102,0.55)'; ctx.fill();
-  ctx.strokeStyle = '#ff8899'; ctx.lineWidth = 2; ctx.stroke();
+  ctx.fillStyle = withAlpha(THEME.point,0.55); ctx.fill();
+  ctx.strokeStyle = THEME.pointRing; ctx.lineWidth = 2; ctx.stroke();
 
   // ── 15. Координатная метка (cos ψ, sin ψ) с цветовым выделением ──
   if (showCoords) {
@@ -1543,8 +1757,8 @@ function draw() {
     let lx = px+10, ly = py-10;
     if (px > W*0.75) lx = px-100;
     if (py < H*0.15) ly = py+20;
-    const DIM = 'rgba(200,207,224,0.7)';
-    const parts = [['(', DIM], [cX, '#4db8ff'], [', ', DIM], [cY, '#3dffa0'], [')', DIM]];
+    const DIM = withAlpha(THEME.text,0.7);
+    const parts = [['(', DIM], [cX, THEME.cos], [', ', DIM], [cY, THEME.sin], [')', DIM]];
     for (const [text, color] of parts) {
       ctx.fillStyle = color;
       ctx.fillText(text, lx, ly);
@@ -1606,7 +1820,7 @@ function fitCellValues() {
 // TICK_DATA содержит [cos, sin, label] — всё нужное без пересчёта.
 function drawAngleLabels() {
   ctx.font = "10px 'JetBrains Mono', monospace";
-  ctx.fillStyle = '#5a6a88';
+  ctx.fillStyle = THEME.label2D;
   const suffix      = lvl === 0 ? '' : (lvl > 0 ? '+' : '') + lvl + '·2π';
   const cleanSuffix = suffix.replace('+', ''); // для метки '0'
   for (const [tx, ty, label] of TICK_DATA) {
@@ -1771,9 +1985,9 @@ document.getElementById('btn-reset').addEventListener('click', () => {
   ISO.camY = 0; // сброс ручного сдвига камеры
   camAnim.current = camAnim.target = 0;
   birthAnim.lvl = 0; birthAnim.t = 1;
-  birthAnim.reachedHi = birthAnim.reachedLo = 0;
   prevSpiralLvl = 0;
   if (typeof camYTarget !== 'undefined') camYTarget = 0;
+  syncSlider();
   draw();
 });
 
@@ -1822,23 +2036,17 @@ let lang = 'ru';
 // Словарь интерфейса. canvas-метки переводятся отдельно через canvasLabel().
 const I18N = {
   ru: {
-    'btn-sin': 'sin и cos', 'btn-tan': 'tan', 'btn-cot': 'cot',
+    'btn-sin': 'sin и cos', 'btn-tan': 'tan', 'btn-cot': 'ctg', 'stat-cot': 'ctg ψ',
     'btn-labels': 'метки углов', 'btn-coords': 'координаты',
-    'btn-mode3d': 'блины / спираль', 'btn-dim': '2D/3D',
-    'btn-reset': 'сброс', 'btn-lang': 'EN/RU', 'lvl': 'ур',
+    'btn-pancakes': 'блины', 'btn-spiral': 'спираль', 'btn-reset': 'сброс', 'lvl': 'ур',
     'deg': 'Угол ψ °', 'rad': 'Угол ψ рад',
-    'cake-title': 'Блинный торт',
-    'cake-desc': 'Уровень 0 — это плоскость, обычная единичная окружность. Намотали оборот вперёд — оказались на <b>блине выше</b>, назад — на <b>блине ниже</b>. Точка на плоскости всюду та же, блин другой.',
     'interval': 'Интервал', 'from': 'от', 'to': 'до',
   },
   en: {
-    'btn-sin': 'sin & cos', 'btn-tan': 'tan', 'btn-cot': 'cot',
+    'btn-sin': 'sin & cos', 'btn-tan': 'tan', 'btn-cot': 'cot', 'stat-cot': 'cot ψ',
     'btn-labels': 'angle marks', 'btn-coords': 'coordinates',
-    'btn-mode3d': 'pancakes / spiral', 'btn-dim': '2D/3D',
-    'btn-reset': 'reset', 'btn-lang': 'EN/RU', 'lvl': 'lvl',
+    'btn-pancakes': 'pancakes', 'btn-spiral': 'spiral', 'btn-reset': 'reset', 'lvl': 'lvl',
     'deg': 'Angle ψ °', 'rad': 'Angle ψ rad',
-    'cake-title': 'Pancake cake',
-    'cake-desc': 'Level 0 is the plane — the ordinary unit circle. Wind one turn forward and you land on the <b>pancake above</b>, backward — the <b>pancake below</b>. The point on the plane is always the same, only the pancake differs.',
     'interval': 'Interval', 'from': 'from', 'to': 'to',
   },
 };
@@ -1852,15 +2060,14 @@ function applyLang() {
   document.getElementById('btn-cot').textContent    = dict['btn-cot'];
   document.getElementById('btn-labels').textContent = dict['btn-labels'];
   document.getElementById('btn-coords').textContent = dict['btn-coords'];
-  document.getElementById('btn-mode3d').textContent = dict['btn-mode3d'];
+  document.getElementById('btn-pancakes').textContent = dict['btn-pancakes'];
+  document.getElementById('btn-spiral').textContent  = dict['btn-spiral'];
   // Кнопка языка показывает, на какой ПЕРЕКЛЮЧИТ: в RU-режиме «EN», в EN «RU».
   document.getElementById('btn-lang').textContent   = (lang === 'ru') ? 'EN' : 'RU';
   // Кнопка размерности показывает целевой режим: в 2D «3D», в 3D «2D».
   document.getElementById('btn-dim').textContent    = is3D ? '2D' : '3D';
   document.getElementById('btn-reset').textContent  = dict['btn-reset'];
-  // Заголовок, пояснение, интервал
-  document.getElementById('cake-title').textContent = dict['cake-title'];
-  document.getElementById('cake-desc').innerHTML    = dict['cake-desc'];
+  // Пояснение, интервал
   document.getElementById('interval-title').textContent   = dict['interval'];
   document.getElementById('interval-from-lbl').textContent = dict['from'];
   document.getElementById('interval-to-lbl').textContent   = dict['to'];
@@ -1870,6 +2077,7 @@ function applyLang() {
     if (dict[key]) el.textContent = dict[key];
   });
   document.documentElement.lang = lang;
+  if (typeof updatePaletteButtonLabel === 'function') updatePaletteButtonLabel();
   if (W) draw(); // перерисовать canvas-подписи (после инициализации размеров)
 }
 
@@ -1878,13 +2086,19 @@ document.getElementById('btn-lang').addEventListener('click', () => {
   applyLang();
 });
 
+// Кнопка палитры — циклом переключает темы (сейчас: тёмная → светлая → ...)
+document.getElementById('btn-palette').addEventListener('click', () => {
+  const names = Object.keys(PALETTES);
+  const next = names[(names.indexOf(paletteName) + 1) % names.length];
+  applyPalette(next);
+});
+
 // Кнопка 2D/3D — переключение плоского вида и «блинного торта»
 document.getElementById('btn-dim').addEventListener('click', function() {
   is3D = !is3D;
   this.classList.toggle('active');
   this.textContent = is3D ? '2D' : '3D'; // показывает, на что переключит
-  document.getElementById('btn-mode3d').style.display = is3D ? '' : 'none';
-  document.getElementById('cake-header').style.display = is3D ? '' : 'none';
+  document.getElementById('mode3d-pair').style.display = is3D ? '' : 'none';
   document.getElementById('interval-row').style.display = is3D ? '' : 'none';
   document.getElementById('cam-arrows').style.display = is3D ? '' : 'none';
   draw();
@@ -1910,57 +2124,185 @@ document.getElementById('cam-down').addEventListener('click', () => {
   camYTarget -= ISO.levelGap * 0.6; animateCamY();   // вниз к нижним блинам
 });
 
-// Кнопка «блины / спираль» — вид внутри 3D
-document.getElementById('btn-mode3d').addEventListener('click', function() {
-  spiralMode = !spiralMode;
-  this.classList.toggle('active');
+// Пара «блины» / «спираль» — вид внутри 3D. Не тумблер, а явный выбор:
+// клик по уже активной кнопке ничего не делает.
+function setSpiralMode(on) {
+  if (spiralMode === on) return;
+  spiralMode = on;
+  document.getElementById('btn-pancakes').classList.toggle('active', !on);
+  document.getElementById('btn-spiral').classList.toggle('active', on);
   // При входе в спираль текущий виток рождается из кольца.
   if (spiralMode) {
-    birthAnim.reachedHi = Math.max(0, lvl);
-    birthAnim.reachedLo = Math.min(0, lvl);
     prevSpiralLvl = lvl;
     startBirthTurn(lvl);
   }
   draw();
-});
+}
+document.getElementById('btn-pancakes').addEventListener('click', () => setSpiralMode(false));
+document.getElementById('btn-spiral').addEventListener('click', () => setSpiralMode(true));
 
 // ── Слайдер угла ψ ──
+// Слайдер — окно ровно в один оборот вокруг ТЕКУЩЕГО lvl; сам по себе он lvl
+// не меняет (переключение уровня — кнопки ◀▶ или клик по счётчику).
+// Положение слайдера = НАМОТАННАЯ доля оборота, а не абсолютный угол: левый
+// край всегда «ничего не намотано» (точка в (1;0)), правый — полный оборот.
+// При lvl<0 обход идёт по часовой, поэтому там ход слайдера вправо уменьшает
+// угол (0° → −360°), иначе левый край показывал бы уже замкнутый оборот.
 const angleSlider = document.getElementById('angle-slider');
+
+// Градусы слайдера (0..360, «сколько намотано») → абсолютный угол в радианах.
+function angleFromSlider(l, sweptDeg) {
+  const deg = l >= 0 ? l * 360 + sweptDeg : (l + 1) * 360 - sweptDeg;
+  return deg * Math.PI / 180;
+}
+
 angleSlider.addEventListener('input', function() {
-  // Слайдер в градусах → радианы. Пересчитываем обороты/уровень.
-  angle = parseFloat(this.value) * Math.PI / 180;
-  revolutions = Math.round((angle - Math.atan2(Math.sin(angle), Math.cos(angle))) / (2*Math.PI));
-  // lvl = число пройденных границ 0°/360° = floor (та же конвенция, что при drag).
-  lvl = Math.floor(angle / (2*Math.PI));
+  angle = angleFromSlider(lvl, parseFloat(this.value));
+  revolutions = lvl;
   prevRawAngle = null;
   prevNormAngle = normalizeAngle(angle);
   draw();
 });
 
-// Синхронизирует положение слайдера с текущим углом (после перетаскивания/стрелок)
+// Синхронизирует положение слайдера с текущим углом (после перетаскивания
+// точки по канвасу, сброса или прыжка по уровню) — обратное к angleFromSlider,
+// с приведением намотанной доли к [0,360).
 function syncSlider() {
   const deg = angle * 180 / Math.PI;
-  const lo = parseFloat(angleSlider.min), hi = parseFloat(angleSlider.max);
-  angleSlider.value = Math.max(lo, Math.min(hi, deg));
+  let sweptDeg = lvl >= 0 ? deg - lvl * 360 : (lvl + 1) * 360 - deg;
+  while (sweptDeg >= 360) sweptDeg -= 360;
+  while (sweptDeg < 0) sweptDeg += 360;
+  angleSlider.value = sweptDeg;
 }
+
+// Прыжок на уровень (виток) на delta шагов, с сохранением намотанной доли —
+// слайдер визуально не двигается, меняется только «блин»/виток под ним.
+function stepLevel(delta) {
+  if (!delta) return;
+  lvl += delta;
+  angle = angleFromSlider(lvl, parseFloat(angleSlider.value));
+  revolutions = lvl;
+  prevRawAngle = null;
+  prevNormAngle = normalizeAngle(angle);
+  draw();
+}
+document.getElementById('lvl-prev').addEventListener('click', () => stepLevel(-1));
+document.getElementById('lvl-next').addEventListener('click', () => stepLevel(1));
+
+// Клик по самому счётчику — мгновенный прыжок на произвольный уровень.
+document.getElementById('lvl-counter').addEventListener('click', function() {
+  const input = window.prompt('Перейти на уровень:', lvl);
+  if (input === null) return;
+  const n = parseInt(input, 10);
+  if (!Number.isFinite(n)) return;
+  stepLevel(n - lvl);
+});
 
 // ── Режим «Интервал» ──
 let intervalUnit = 'deg'; // 'deg' | 'rad'
 const intFrom = document.getElementById('interval-from');
 const intTo   = document.getElementById('interval-to');
 
-function applyInterval() {
-  let from = parseFloat(intFrom.value);
-  let to   = parseFloat(intTo.value);
-  if (isNaN(from) || isNaN(to) || from >= to) return;
-  // Приводим границы к градусам для слайдера
-  if (intervalUnit === 'rad') {
-    from = from * 180 / Math.PI;
-    to   = to   * 180 / Math.PI;
+// Разбирает строку с полем «от/до»: не только простое число («-450»,
+// «1.57»), но и арифметическое выражение — с константами π/pi, e и функцией
+// sqrt(...) («π/2», «sqrt(2)», «pi/6+sqrt(3)/2», «-2π/3», «(1+2)π»).
+// Поддерживает + − * / скобки, унарный минус и неявное умножение перед
+// числом/идентификатором/скобкой (2π, 3(1+1), 2sqrt(2)). При ошибке
+// разбора или незавершённом вводе возвращает NaN — как раньше parseFloat('').
+function parseIntervalValue(raw) {
+  if (raw == null) return NaN;
+  const s = String(raw).trim().toLowerCase().replace(/\s+/g, '');
+  if (s === '') return NaN;
+  let i = 0;
+  const peek = () => s[i];
+  const isDigit = c => c !== undefined && c >= '0' && c <= '9';
+  const isAlpha = c => c !== undefined && ((c >= 'a' && c <= 'z') || c === 'π');
+
+  function parseExpr() {
+    let v = parseTerm();
+    for (;;) {
+      if (peek() === '+') { i++; v += parseTerm(); }
+      else if (peek() === '-') { i++; v -= parseTerm(); }
+      else break;
+    }
+    return v;
   }
-  angleSlider.min = Math.round(from);
-  angleSlider.max = Math.round(to);
-  syncSlider();
+  function parseTerm() {
+    let v = parseUnary();
+    for (;;) {
+      const c = peek();
+      if (c === '*') { i++; v *= parseUnary(); }
+      else if (c === '/') { i++; v /= parseUnary(); }
+      else if (c === '(' || isDigit(c) || isAlpha(c)) { v *= parseUnary(); } // неявное умножение: 2π, 2sqrt(2), 3(1+1)
+      else break;
+    }
+    return v;
+  }
+  function parseUnary() {
+    if (peek() === '+') { i++; return parseUnary(); }
+    if (peek() === '-') { i++; return -parseUnary(); }
+    return parseAtom();
+  }
+  function parseAtom() {
+    const c = peek();
+    if (c === undefined) throw new Error('unexpected end');
+    if (c === '(') {
+      i++;
+      const v = parseExpr();
+      if (peek() !== ')') throw new Error('expected )');
+      i++;
+      return v;
+    }
+    if (isDigit(c) || c === '.') {
+      const start = i;
+      while (i < s.length && (isDigit(s[i]) || s[i] === '.')) i++;
+      return parseFloat(s.slice(start, i));
+    }
+    if (c === 'π') { i++; return Math.PI; }
+    if (isAlpha(c)) {
+      const start = i;
+      while (i < s.length && isAlpha(s[i]) && s[i] !== 'π') i++;
+      const name = s.slice(start, i);
+      if (name === 'pi') return Math.PI;
+      if (name === 'e')  return Math.E;
+      if (name === 'sqrt') {
+        if (peek() !== '(') throw new Error('sqrt expects (');
+        i++;
+        const arg = parseExpr();
+        if (peek() !== ')') throw new Error('expected )');
+        i++;
+        if (arg < 0) throw new Error('sqrt of negative');
+        return Math.sqrt(arg);
+      }
+      throw new Error('unknown identifier: ' + name);
+    }
+    throw new Error('unexpected char: ' + c);
+  }
+
+  try {
+    const result = parseExpr();
+    if (i !== s.length) return NaN; // остался «хвост» — выражение некорректно
+    return isFinite(result) ? result : NaN;
+  } catch (e) {
+    return NaN;
+  }
+}
+
+function applyInterval() {
+  const from = parseIntervalValue(intFrom.value);
+  const to   = parseIntervalValue(intTo.value);
+  intFrom.classList.toggle('invalid', isNaN(from));
+  intTo.classList.toggle('invalid', isNaN(to));
+  if (isNaN(from) || isNaN(to)) return;
+  if (from >= to) {
+    // Оба выражения разобрались, но «от» не меньше «до» — тоже некорректно.
+    intFrom.classList.add('invalid');
+    intTo.classList.add('invalid');
+    return;
+  }
+  // Больше не трогает слайдер ψ — тот теперь независимое окно в один
+  // оборот. «От/до» используются только для точек A/B в intervalBounds().
+  draw();
 }
 intFrom.addEventListener('change', applyInterval);
 intTo.addEventListener('change', applyInterval);
@@ -1968,13 +2310,15 @@ intTo.addEventListener('change', applyInterval);
 document.getElementById('interval-unit').addEventListener('click', function() {
   intervalUnit = intervalUnit === 'deg' ? 'rad' : 'deg';
   this.textContent = intervalUnit === 'deg' ? '°' : 'рад';
-  // Пересчитываем показанные границы в новую единицу
+  // Пересчитываем показанные границы в новую единицу. Введённое выражение
+  // (например «π/2») при этом заменяется его десятичным значением —
+  // символьная форма через смену единиц не сохраняется.
   if (intervalUnit === 'rad') {
-    intFrom.value = (parseFloat(intFrom.value) * Math.PI / 180).toFixed(2);
-    intTo.value   = (parseFloat(intTo.value)   * Math.PI / 180).toFixed(2);
+    intFrom.value = (parseIntervalValue(intFrom.value) * Math.PI / 180).toFixed(2);
+    intTo.value   = (parseIntervalValue(intTo.value)   * Math.PI / 180).toFixed(2);
   } else {
-    intFrom.value = Math.round(parseFloat(intFrom.value) * 180 / Math.PI);
-    intTo.value   = Math.round(parseFloat(intTo.value)   * 180 / Math.PI);
+    intFrom.value = Math.round(parseIntervalValue(intFrom.value) * 180 / Math.PI);
+    intTo.value   = Math.round(parseIntervalValue(intTo.value)   * 180 / Math.PI);
   }
   if (intervalOn) draw();
 });
@@ -1986,8 +2330,8 @@ let glowRaf = 0;
 
 // Границы интервала в радианах (из полей «от/до»)
 function intervalBounds() {
-  let from = parseFloat(intFrom.value);
-  let to   = parseFloat(intTo.value);
+  let from = parseIntervalValue(intFrom.value);
+  let to   = parseIntervalValue(intTo.value);
   if (isNaN(from) || isNaN(to)) return null;
   if (intervalUnit === 'deg') { from = from*Math.PI/180; to = to*Math.PI/180; }
   return [from, to];
@@ -2057,6 +2401,7 @@ function resize() {
 
 // Инициализация текста (заголовок, пояснение, метки) и скрытие 3D-элементов
 applyLang();
+applyPalette(paletteName);
 document.getElementById('interval-row').style.display = 'none';
 
 resize();
