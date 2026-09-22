@@ -150,7 +150,7 @@ function resizeCanvas(){
 function drawCurve(ctx,fnObj,params,tX,tY,tMX,W,alpha=1,lw=2.5,glow=14){
   const N=W*2;
   ctx.save();ctx.globalAlpha=alpha;
-  ctx.shadowColor=fnObj.color;ctx.shadowBlur=glow;
+  
   ctx.strokeStyle=fnObj.color;ctx.lineWidth=lw;
   ctx.beginPath();
   let penDown=false,prevPy=null;
@@ -164,35 +164,35 @@ function drawCurve(ctx,fnObj,params,tX,tY,tMX,W,alpha=1,lw=2.5,glow=14){
     if(!penDown){ctx.moveTo(px,py);penDown=true;}else ctx.lineTo(px,py);
     prevPy=py;
   }
-  ctx.stroke();ctx.shadowBlur=0;ctx.restore();
+  ctx.stroke();ctx.restore();
 }
 function drawSpecial(ctx,fnObj,p,tX,tY,alpha=1,lw=2.5,glow=14){
   if(fnObj.id==='circle'){
     const{cx:px=0,cy:py2=0,r=2}=p;
     const pxC=tX(px),pyC=tY(py2),rPx=Math.abs(tX(px+r)-pxC);
-    ctx.save();ctx.globalAlpha=alpha;ctx.shadowColor=fnObj.color;ctx.shadowBlur=glow;
+    ctx.save();ctx.globalAlpha=alpha;
     ctx.strokeStyle=fnObj.color;ctx.lineWidth=lw;
     ctx.beginPath();ctx.arc(pxC,pyC,rPx,0,Math.PI*2);ctx.stroke();
-    ctx.shadowBlur=4;ctx.fillStyle=fnObj.color+"99";
+    ctx.fillStyle=fnObj.color+"99";
     ctx.beginPath();ctx.arc(pxC,pyC,3,0,Math.PI*2);ctx.fill();
-    ctx.shadowBlur=0;ctx.restore();
+    ctx.restore();
   }else if(fnObj.id==='ellipse'){
     const{cx:px=0,cy:py2=0,a=3,b=2}=p;
     const pxC=tX(px),pyC=tY(py2),rX=Math.abs(tX(px+a)-pxC),rY=Math.abs(tY(py2+b)-pyC);
-    ctx.save();ctx.globalAlpha=alpha;ctx.shadowColor=fnObj.color;ctx.shadowBlur=glow;
+    ctx.save();ctx.globalAlpha=alpha;
     ctx.strokeStyle=fnObj.color;ctx.lineWidth=lw;
     ctx.beginPath();ctx.ellipse(pxC,pyC,rX,rY,0,0,Math.PI*2);ctx.stroke();
-    ctx.shadowBlur=4;ctx.fillStyle=fnObj.color+"99";
+    ctx.fillStyle=fnObj.color+"99";
     ctx.beginPath();ctx.arc(pxC,pyC,3,0,Math.PI*2);ctx.fill();
     if(Math.abs(a-b)>.05){
       const c=Math.sqrt(Math.max(a,b)**2-Math.min(a,b)**2);
       const f1x=a>b?tX(px+c):pxC,f1y=a>b?pyC:tY(py2+c);
       const f2x=a>b?tX(px-c):pxC,f2y=a>b?pyC:tY(py2-c);
-      ctx.shadowBlur=0;ctx.fillStyle=fnObj.color+"cc";
+      ctx.fillStyle=fnObj.color+"cc";
       ctx.beginPath();ctx.arc(f1x,f1y,3,0,Math.PI*2);ctx.fill();
       ctx.beginPath();ctx.arc(f2x,f2y,3,0,Math.PI*2);ctx.fill();
     }
-    ctx.shadowBlur=0;ctx.restore();
+    ctx.restore();
   }
 }
 function draw(){
@@ -455,10 +455,16 @@ function renderCompare(){
     </div>`:""}
     ${S.compareParam&&S.compareMode?`<div class="cmp-legend">
       <div class="cmp-row"><div class="cmp-line" style="background:${f.color}"></div><span style="font-size:12px;color:${f.color}">f(x): ${S.compareParam} = ${fmt(S.params[S.compareParam]??0)}</span></div>
-      <div class="cmp-row"><div class="cmp-line" style="background:#facc15"></div><span style="font-size:12px;color:#facc15">g(x): ${S.compareParam} = ${fmt(S.compareValue)}</span></div>
-      <div style="font-size:11px;color:#475569;padding-top:6px;border-top:1px solid rgba(255,255,255,.05)">Δ${S.compareParam} = ${fmt(S.compareValue-(S.params[S.compareParam]??0))}</div>
+      <div class="cmp-row"><div class="cmp-line" style="background:#facc15"></div><span id="cmp-leg-g" style="font-size:12px;color:#facc15">g(x): ${S.compareParam} = ${fmt(S.compareValue)}</span></div>
+      <div id="cmp-leg-d" style="font-size:11px;color:#475569;padding-top:6px;border-top:1px solid rgba(255,255,255,.05)">Δ${S.compareParam} = ${fmt(S.compareValue-(S.params[S.compareParam]??0))}</div>
     </div>`:""}
   </div>`;
+}
+function updateCmpLegend(){
+  const g=document.getElementById("cmp-leg-g");
+  const d=document.getElementById("cmp-leg-d");
+  if(g)g.textContent=`g(x): ${S.compareParam} = ${fmt(S.compareValue)}`;
+  if(d)d.textContent=`Δ${S.compareParam} = ${fmt(S.compareValue-(S.params[S.compareParam]??0))}`;
 }
 function attachTabEvents(tab){
   if(tab==="funcs"){
@@ -517,12 +523,12 @@ function attachTabEvents(tab){
       const v=parseFloat(e.target.value);
       if(isFinite(v)){const pd=fn().paramDefs.find(p=>p.key===S.compareParam);if(pd)S.compareValue=Math.max(pd.min,Math.min(pd.max,v));}
       const r=document.getElementById("cmp-range");if(r)r.value=S.compareValue;
-      renderTab("compare");draw();
+      updateCmpLegend();draw();
     });
     document.getElementById("cmp-range")?.addEventListener("input",e=>{
       S.compareValue=parseFloat(e.target.value);
       const v=document.getElementById("cmp-val");if(v)v.value=S.compareValue;
-      renderTab("compare");draw();
+      updateCmpLegend();draw();
     });
   }
 }
