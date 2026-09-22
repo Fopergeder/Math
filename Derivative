@@ -1,0 +1,1002 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Электрокар: педали и скорость</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0a0e14; --panel:#11161f; --panel-2:#0d1218;
+    --line:#1b2531; --line-soft:#141c26;
+    --ink:#e6edf3; --muted:#7d8896;
+    --accent-v:#36e0c8; --accent-s:#f5a623; --brake:#ff5d5d;
+    --car:#cfd8e3; --car-dark:#1b2230;
+    --radius:14px;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;background:var(--bg);color:var(--ink);}
+  body{
+    font-family:"IBM Plex Sans",system-ui,sans-serif;padding:16px;
+    display:flex;justify-content:center;
+    background-image:
+      radial-gradient(1200px 600px at 80% -10%, #10202a 0%, transparent 60%),
+      radial-gradient(900px 500px at -10% 110%, #14121f 0%, transparent 55%);
+  }
+  .wrap{width:100%;max-width:880px;}
+  header{margin-bottom:14px;}
+  h1{font-size:20px;font-weight:600;margin:0 0 4px;}
+  .sub{font-size:13px;color:var(--muted);line-height:1.5;margin:0;}
+  .card{
+    background:linear-gradient(180deg,var(--panel),var(--panel-2));
+    border:1px solid var(--line);border-radius:var(--radius);
+    padding:14px;margin-bottom:14px;box-shadow:0 10px 30px rgba(0,0,0,.35);
+  }
+  canvas{display:block;width:100%;border-radius:8px;}
+  #scene{height:180px;background:#0c1117;border:1px solid var(--line-soft);}
+  #graph{height:300px;background:#070a0f;border:1px solid var(--line-soft);}
+
+  /* раскладка управления */
+  .ctl{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start;}
+  .pedals{display:flex;gap:14px;}
+  .pedal-wrap{display:flex;flex-direction:column;align-items:center;gap:7px;}
+  .pedal{position:relative;width:64px;height:190px;border-radius:13px;
+    border:1px solid var(--line);background:#0c1219;overflow:hidden;cursor:pointer;
+    touch-action:none;box-shadow:inset 0 2px 12px rgba(0,0,0,.55);}
+  .pedal-fill{position:absolute;left:0;right:0;top:0;height:0%;transition:height .03s linear;}
+  .pedal.gas   .pedal-fill{background:linear-gradient(180deg,#1c8979,#36e0c8);}
+  .pedal.brake .pedal-fill{background:linear-gradient(180deg,#a82a2a,#ff5d5d);}
+  .pedal-fill::after{content:'';position:absolute;left:0;right:0;bottom:0;height:3px;background:rgba(255,255,255,.9);}
+  .pedal-top{position:absolute;top:7px;left:0;right:0;text-align:center;font-size:9px;
+    color:#46566a;font-family:"IBM Plex Mono",monospace;pointer-events:none;letter-spacing:.5px;}
+  .pedal-bot{position:absolute;bottom:7px;left:0;right:0;text-align:center;font-size:9px;
+    color:#46566a;font-family:"IBM Plex Mono",monospace;pointer-events:none;}
+  .pedal-label{font-size:12px;font-weight:600;letter-spacing:1.5px;}
+  .gas    .pedal-label,.lbl-gas{color:var(--accent-v);}
+  .brake  .pedal-label,.lbl-brake{color:var(--brake);}
+  .pedal-pct{font-family:"IBM Plex Mono",monospace;font-size:14px;color:var(--muted);}
+
+  .side{display:flex;flex-direction:column;gap:13px;flex:1;min-width:210px;}
+  .btns{display:flex;flex-wrap:wrap;gap:10px;}
+  button{font-family:inherit;font-size:14px;font-weight:500;color:var(--ink);
+    background:#1a2330;border:1px solid var(--line);border-radius:10px;
+    padding:9px 16px;cursor:pointer;transition:.15s;}
+  button:hover{background:#22303f;border-color:#2c3a4a;}
+  button:active{transform:translateY(1px);}
+  #btnDemo{background:#2a2210;border-color:#5a4a1d;color:var(--accent-s);}
+  #btnCurve{background:#1a2330;border-color:#5a4a1d;color:var(--accent-s);}
+  .pedal.dead{opacity:.32;pointer-events:none;filter:grayscale(.6);}
+
+  .readouts{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .ro{background:#0c1219;border:1px solid var(--line-soft);border-radius:10px;padding:9px 11px;}
+  .ro .k{font-size:10px;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;}
+  .ro .k .sym{text-transform:none;font-style:italic;}
+  .ro .val{font-family:"IBM Plex Mono",monospace;font-size:20px;font-weight:600;margin-top:2px;}
+  .ro .u{font-size:12px;color:var(--muted);font-weight:400;}
+  .ro .sub2{font-size:11px;color:var(--muted);font-family:"IBM Plex Mono",monospace;}
+  .ro.t .val{color:var(--ink);} .ro.v .val{color:var(--accent-v);}
+  .ro.a .val{color:#9db4ff;} .ro.s .val{color:var(--ink);}
+
+  .toggle{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);cursor:pointer;user-select:none;margin-top:12px;}
+  .toggle input{width:18px;height:18px;accent-color:var(--accent-s);cursor:pointer;}
+  .note{font-size:11.5px;color:#5d6775;line-height:1.5;margin-top:8px;}
+  .legend{display:flex;flex-wrap:wrap;gap:18px;justify-content:center;margin-top:10px;font-size:12px;color:#8a95a3;}
+  .zoombar{display:flex;align-items:center;gap:8px;margin-top:10px;}
+  .zoombar button{width:42px;height:34px;font-size:19px;line-height:1;background:#141c27;border:1px solid var(--line);border-radius:9px;color:var(--ink);font-weight:700;cursor:pointer;}
+  .zoombar button:hover{background:#1b2531;}
+  .zoombar .zhint{font-size:11px;color:#5d6775;margin-left:auto;}
+  .scenebar{display:flex;align-items:center;gap:8px;margin-top:8px;}
+  .scenebar .zhint{font-size:11px;color:#5d6775;}
+  .scenebar button{margin-left:auto;height:32px;padding:0 12px;font-size:13px;background:#141c27;border:1px solid var(--line);border-radius:9px;color:var(--ink);cursor:pointer;}
+  .scenebar button:hover{background:#1b2531;}
+  .legend span{display:inline-flex;align-items:center;gap:6px;}
+  .legend i{width:11px;height:11px;border-radius:2px;display:inline-block;flex:none;}
+  .model{margin-top:12px;color:#8a95a3;font-size:13px;line-height:1.55;}
+  .model h3{margin:0 0 8px;font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:var(--accent-s);font-weight:600;}
+  .model p{margin:7px 0;}
+  .model .eq{font-family:'Cambria Math',Cambria,Georgia,'Times New Roman',serif;font-size:16px;color:var(--ink);margin:9px 0;}
+  .model .eqlist{list-style:none;margin:8px 0;padding:0;}
+  .model .eqlist li{font-family:'Cambria Math',Cambria,Georgia,'Times New Roman',serif;font-size:14.5px;color:var(--ink);margin:6px 0;}
+  .model .eqlist li span.cap{font-family:'IBM Plex Sans',sans-serif;font-size:12px;color:#8a95a3;}
+  .model i{font-style:italic;}
+  .model sub{font-size:.7em;line-height:0;}
+  .note code{font-family:"IBM Plex Mono",monospace;color:#8b97a6;background:#0c1219;padding:1px 5px;border-radius:4px;}
+  @media (max-width:560px){
+    .readouts{grid-template-columns:1fr 1fr;}
+    .side{min-width:160px;}
+  }
+  /* десктоп: сцена сверху во всю ширину, ниже — управление слева и большой график справа */
+  @media (min-width:980px){
+    .wrap{max-width:1320px;}
+    .row2{display:grid; grid-template-columns:380px 1fr; gap:16px; align-items:start;}
+    .row2 .card{margin-bottom:0;}
+    #scene{height:220px;}
+    #graph{height:600px;}
+    .readouts{grid-template-columns:1fr 1fr;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <canvas id="scene"></canvas>
+    <div class="scenebar">
+      <span class="zhint">потяни дорогу пальцем · коснись, чтобы поставить A/B</span>
+      <button id="btnSceneCenter" title="Вернуться к машине">⌖ к машине</button>
+    </div>
+  </div>
+
+  <div class="row2">
+  <div class="card">
+    <div class="ctl">
+      <div class="pedals">
+        <div class="pedal-wrap">
+          <div class="pedal gas" id="pedGas">
+            <div class="pedal-fill" id="gasFill"></div>
+            <div class="pedal-top">отпущено</div>
+            <div class="pedal-bot">в пол</div>
+          </div>
+          <div class="pedal-label">ГАЗ</div>
+          <div class="pedal-pct" id="gasPct">0%</div>
+        </div>
+        <div class="pedal-wrap">
+          <div class="pedal brake" id="pedBrake">
+            <div class="pedal-fill" id="brakeFill"></div>
+            <div class="pedal-top">отпущено</div>
+            <div class="pedal-bot">в пол</div>
+          </div>
+          <div class="pedal-label">ТОРМОЗ</div>
+          <div class="pedal-pct" id="brakePct">0%</div>
+        </div>
+      </div>
+
+      <div class="side">
+        <div class="btns">
+          <button id="btnDemo">▷ Демо-заезд</button>
+          <button id="btnCurve">∿ Провести кривую</button>
+          <button id="btnReset">⟲ Сброс</button>
+        </div>
+        <div class="readouts">
+          <div class="ro t"><div class="k">Время <span class="sym">t</span></div><div class="val"><span id="roT">0.0</span> <span class="u">с</span></div></div>
+          <div class="ro s"><div class="k">Путь S</div><div class="val"><span id="roS">0</span> <span class="u">м</span></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <canvas id="graph"></canvas>
+    <div class="zoombar">
+      <button id="btnZoomOut" title="Отдалить">−</button>
+      <button id="btnZoomIn" title="Приблизить">+</button>
+      <button id="btnZoomFit" title="Вписать всё">⤢</button>
+      <span class="zhint">или масштабируй двумя пальцами</span>
+    </div>
+    <div class="legend">
+      <span><i style="background:#5ec8ff"></i>асфальт</span>
+      <span><i style="background:#b0703a"></i>гравий</span>
+      <span><i style="background:#c9a82e"></i>песок</span>
+    </div>
+    <div class="model">
+      <h3>Физическая модель</h3>
+      <p>Скорость не задаётся напрямую — она интегрируется из второго закона Ньютона (скорость знаковая: «+» вперёд, «−» назад):</p>
+      <p class="eq"><i>m</i> · d<i>v</i>/d<i>t</i> = <i>F</i><sub>тяги</sub> · dir − <i>F</i><sub>сопр</sub> · sgn(<i>v</i>)</p>
+      <p>Сопротивление складывается из четырёх сил:</p>
+      <p class="eq"><i>F</i><sub>сопр</sub> = <i>F</i><sub>торм</sub> + <i>F</i><sub>рекуп</sub> + <i>F</i><sub>возд</sub> + <i>F</i><sub>кач</sub></p>
+      <ul class="eqlist">
+        <li><i>F</i><sub>тяги</sub> = газ · min(μ·<i>F</i><sub>max</sub>, <i>P</i><sub>max</sub> / |<i>v</i>|) <span class="cap">— тяга, ограничена мощностью и сцеплением μ</span></li>
+        <li><i>F</i><sub>торм</sub> = тормоз · <i>F</i><sub>торм,max</sub> · μ <span class="cap">— рабочие тормоза</span></li>
+        <li><i>F</i><sub>рекуп</sub> = μ · <i>P</i><sub>рек</sub> / |<i>v</i>| <span class="cap">— рекуперация при сбросе газа</span></li>
+        <li><i>F</i><sub>возд</sub> = ½ · ρ · <i>C</i><sub>d</sub> · <i>A</i> · <i>v</i>² <span class="cap">— сопротивление воздуха</span></li>
+        <li><i>F</i><sub>кач</sub> = <i>C</i><sub>rr</sub> · <i>m</i> · <i>g</i> <span class="cap">— сопротивление качению</span></li>
+      </ul>
+      <p>Коэффициент сопротивления качению <i>C</i><sub>rr</sub> и сцепление μ задаются покрытием (асфальт / гравий / песок); тяга действует по выбранной передаче dir, сопротивление — против движения.</p>
+    </div>
+  </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+(function(){
+  // ---------- Физика электрокара ----------
+  const PHYS = {
+    m:1700, Pmax:150000, Fmax:6000, veps:0.5,
+    Pregen:50000, FregenMax:2500, FbrakeMax:11000,
+    kDrag:0.5*1.2*0.28*2.3         // ½·ρ·Cd·A ≈ 0.386
+  };
+  // покрытия дороги по координате x: crr — сопротивление качению, grip — сцепление (доля тяги/тормоза)
+  const ZONES = [
+    { x0:0,   name:'асфальт', crr:0.012, grip:1.00, col:'#2b3440', gcol:'#5ec8ff' },
+    { x0:45,  name:'гравий',  crr:0.030, grip:0.85, col:'#4d3a22', gcol:'#b0703a' },
+    { x0:85,  name:'песок',   crr:0.065, grip:0.60, col:'#544818', gcol:'#c9a82e' },
+    { x0:135, name:'асфальт', crr:0.012, grip:1.00, col:'#2b3440', gcol:'#5ec8ff' }
+  ];
+  function surfaceAt(x){ let s=ZONES[0]; for(const z of ZONES) if(x>=z.x0) s=z; return s; }
+  const T_WINDOW = 26, DT_MAX = 0.05, V_MIN_RANGE = 10;
+  const DOT_DT = 2.0;          // интервал между отметками, с
+  const CURVE_DUR = 2.2;       // длительность анимации проведения кривой, с
+  const STILL_STOP = 6.0;      // через сколько секунд стоя́ния остановить запись, с
+
+  // ---------- Состояние ----------
+  const st = {
+    t:0, v:0, x:0, a:0,
+    throttle:0, brake:0,
+    running:false, lastTs:0,
+    hist:[], vRange:V_MIN_RANGE, sLo:0, sHi:60,
+    demo:false, dir:1, broken:false,
+    marks:[],             // измерительные точки {t,x}
+    dots:[], nextDotT:0,  // отметки каждые 2 с
+    animP:0, animOn:false, animLast:0,  // анимация проведения кривой
+    stillTime:0,          // сколько уже стоим (для автостопа)
+    view:{auto:true, z:1, tc:0, sc:0, ar:1},   // вид графика: auto=вписывать, иначе ручной зум/пан
+    sceneView:null,                             // якорь дороги: null=следить за машиной, иначе координата под точкой 40%
+    truck:null, crashed:false, crashT:0, carAng:0, carAngV:0,   // событие столкновения на 400 м
+    crashDX:0, crashVX:0,                                        // визуальный отскок машины (м)
+    debris:[], smoke:[], shake:0, fxLast:0                        // обломки/дым/тряска при ударе
+  };
+  let gplot=null;         // геометрия графика для обратного преобразования экран↔данные
+  let sgeo=null;          // геометрия сцены (дороги) для обратного преобразования экран↔координата
+
+  // ---------- Демо-заезд: педали меняются ПЛАВНО (smoothstep) ----------
+  // Ступеньки давали разрыв ускорения (бесконечный рывок) и изломы на v(t).
+  // Линейно-плавные нажатия → сила непрерывна → a непрерывно → v гладкая (C¹), j конечен.
+  // Сегмент: [t0, t1, газ0, газ1, торм0, торм1]
+  // Сегмент: [t0, t1, газ0, газ1, торм0, торм1, передача(+1=D,-1=R)]
+  // Передача меняется только в полной остановке (на стыках с v≈0) — иначе сломалась бы коробка.
+  const DEMO_SEG = [
+    [0.0, 0.9,  0,    1,    0,    0,    1],  // резкий старт (асфальт) — крутой подъём
+    [0.9, 2.6,  1,    1,    0,    0,    1],  // разгон в пол
+    [2.6, 3.8,  1,    0,    0,    0,    1],  // сброс газа → рекуперация (склон спадает)
+    [3.8, 4.4,  0,    0,    0,    0,    1],  // накат
+    [4.4, 6.0,  0,    0,    0.7,  0.7,  1],  // тормоз до полной остановки
+    [6.0, 7.0,  0,    0,    0.1,  0.1,  1],  // стоим (площадка)
+    [7.0, 7.8,  0,    0.9,  0,    0,    1],  // рестарт — газ
+    [7.8, 10.5, 0.9,  0.9,  0,    0,    1],  // разгон по асфальту
+    [10.5,13.5, 0.7,  0.7,  0,    0,    1],  // выезд на гравий (замедление)
+    [13.5,17.0, 0.9,  0.9,  0,    0,    1],  // песок: газ сильнее, всё равно вяло
+    [17.0,19.0, 0.85, 0.85, 0,    0,    1],  // асфальт-2: резкий разгон (крутой склон)
+    [19.0,19.5, 0.85, 0,    0,    0,    1],  // сброс
+    [19.5,24.0, 0,    0,    0.85, 0.85, 1]   // сильный тормоз до полной остановки
+  ];
+  const T_DEMO = 24.2;
+  function smoothstep(u){ u=Math.max(0,Math.min(1,u)); return u*u*(3-2*u); }
+  function demoPed(t){
+    for(const s of DEMO_SEG){
+      if(t>=s[0] && t<s[1]){
+        const u=smoothstep((t-s[0])/(s[1]-s[0]));
+        return [ s[2]+(s[3]-s[2])*u, s[4]+(s[5]-s[4])*u, s[6] ];
+      }
+    }
+    const L=DEMO_SEG[DEMO_SEG.length-1];
+    return [L[3], L[5], L[6]];   // держим последнее состояние
+  }
+
+  // ---------- DOM ----------
+  const scene=document.getElementById('scene'), graph=document.getElementById('graph');
+  const sctx=scene.getContext('2d'), gctx=graph.getContext('2d');
+  const pedGas=document.getElementById('pedGas'), pedBrake=document.getElementById('pedBrake');
+  const gasFill=document.getElementById('gasFill'), brakeFill=document.getElementById('brakeFill');
+  const gasPct=document.getElementById('gasPct'), brakePct=document.getElementById('brakePct');
+  const btnDemo=document.getElementById('btnDemo'), btnReset=document.getElementById('btnReset'), btnCurve=document.getElementById('btnCurve');
+  const roT=document.getElementById('roT'), roS=document.getElementById('roS');
+  const CSS=getComputedStyle(document.documentElement); const C=k=>CSS.getPropertyValue(k).trim();
+
+  // ---------- Canvas под DPR ----------
+  function fit(cv,ctx){const dpr=window.devicePixelRatio||1;const r=cv.getBoundingClientRect();
+    cv.width=Math.round(r.width*dpr);cv.height=Math.round(r.height*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);cv._w=r.width;cv._h=r.height;}
+  function fitAll(){fit(scene,sctx);fit(graph,gctx);}
+  window.addEventListener('resize',fitAll);
+
+  // ---------- Педали (вертикальные, верх = отпущено) ----------
+  function renderPedals(){
+    gasFill.style.height=(st.throttle*100)+'%';
+    brakeFill.style.height=(st.brake*100)+'%';
+    gasPct.textContent=Math.round(st.throttle*100)+'%';
+    brakePct.textContent=Math.round(st.brake*100)+'%';
+  }
+  function attachPedal(el, set){
+    let active=false;
+    const frac=e=>{const r=el.getBoundingClientRect();const cy=(e.touches?e.touches[0].clientY:e.clientY);
+      return Math.max(0,Math.min(1,(cy-r.top)/r.height));};
+    const down=e=>{cancelDemo();active=true;set(frac(e));renderPedals();e.preventDefault();};
+    const move=e=>{if(!active)return;set(frac(e));renderPedals();e.preventDefault();};
+    const up=()=>{active=false;};
+    el.addEventListener('mousedown',down); el.addEventListener('touchstart',down,{passive:false});
+    window.addEventListener('mousemove',move); window.addEventListener('touchmove',move,{passive:false});
+    window.addEventListener('mouseup',up); window.addEventListener('touchend',up);
+  }
+  attachPedal(pedGas,  v=>{ if(st.broken) return; st.throttle=v; if(v>0.02 && !st.running) setRunning(true); });
+  attachPedal(pedBrake,v=>{st.brake=v;});
+
+  // ---------- Зум/пан графика ----------
+  const clampN=(v,a,b)=>Math.max(a,Math.min(b,v));
+  function screenToData(cx,cy){
+    const g=gplot; if(!g) return null;
+    return { t:g.tStart+((cx-g.x0)/g.plotW)*g.tWin,
+             s:g.sLo+((g.y0+g.plotH-cy)/g.plotH)*(g.sHi-g.sLo) };
+  }
+  function ensureManual(){
+    if(st.view.auto){
+      const g=gplot; if(!g) return false;
+      const baseWin=Math.max(T_WINDOW,st.t);
+      st.view={auto:false, z:Math.max(1,baseWin/g.tWin), tc:g.tStart+g.tWin/2, sc:(g.sLo+g.sHi)/2, ar:(g.sHi-g.sLo)/g.tWin};
+    }
+    return true;
+  }
+  function clampView(){
+    const V=st.view, baseWin=Math.max(T_WINDOW,st.t), tWin=baseWin/V.z;
+    V.tc=clampN(V.tc, tWin/2, Math.max(tWin/2, baseWin-tWin/2));   // не выходим за [0, baseWin] по времени
+  }
+  function zoomAround(factor, ct, cs){    // factor>1 = приблизить
+    if(!ensureManual()) return;
+    const V=st.view, newZ=clampN(V.z*factor,1,16), fEff=V.z/newZ;
+    V.tc=ct+(V.tc-ct)*fEff; V.sc=cs+(V.sc-cs)*fEff; V.z=newZ;
+    if(newZ<=1.0001) st.view.auto=true; else clampView();
+  }
+  function zoomCenter(factor){ const g=gplot; if(!g) return; zoomAround(factor, g.tStart+g.tWin/2,(g.sLo+g.sHi)/2); }
+  function touchMid(e){
+    const r=graph.getBoundingClientRect(), a=e.touches[0], b=e.touches[1];
+    return { mx:((a.clientX+b.clientX)/2)-r.left, my:((a.clientY+b.clientY)/2)-r.top,
+             d:Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY) };
+  }
+  let pinch=null;
+  graph.addEventListener('wheel',(e)=>{
+    const r=graph.getBoundingClientRect(); const d=screenToData(e.clientX-r.left,e.clientY-r.top); if(!d) return;
+    e.preventDefault(); zoomAround(e.deltaY<0?1.12:1/1.12, d.t, d.s);
+  },{passive:false});
+
+  // ---------- Измерительные точки: постановка + перетаскивание ----------
+  let dragMark=-1;
+  function graphXY(e){
+    const r=graph.getBoundingClientRect();
+    return { cx:(e.touches?e.touches[0].clientX:e.clientX)-r.left,
+             cy:(e.touches?e.touches[0].clientY:e.clientY)-r.top };
+  }
+  function nearestSample(t){
+    let best=null,bd=1e9;
+    for(const p of st.hist){ const d=Math.abs(p.t-t); if(d<bd){bd=d;best=p;} }
+    return best?{t:best.t,x:best.x,d:bd}:null;
+  }
+  function markPx(mk){
+    const g=gplot;
+    return { px:g.x0+((mk.t-g.tStart)/g.tWin)*g.plotW,
+             py:g.y0+g.plotH-((mk.x-g.sLo)/(g.sHi-g.sLo))*g.plotH };
+  }
+  function graphDown(e){
+    if(e.touches && e.touches.length>=2){          // два пальца → зум/пан
+      dragMark=-1; const ti=touchMid(e); const an=screenToData(ti.mx,ti.my);
+      if(an){ pinch={d0:ti.d, mx:ti.mx, my:ti.my, at:an.t, as:an.s}; e.preventDefault(); }
+      return;
+    }
+    const g=gplot; if(!g || !st.hist.length) return;
+    const {cx,cy}=graphXY(e);
+    // 1) попытка захватить существующую точку (для перетаскивания)
+    for(let i=0;i<st.marks.length;i++){
+      const {px,py}=markPx(st.marks[i]);
+      if(Math.hypot(cx-px,cy-py)<20){ dragMark=i; e.preventDefault(); return; }
+    }
+    // 2) иначе — поставить новую точку на кривой
+    if(cx<g.x0||cx>g.x0+g.plotW||cy<g.y0||cy>g.y0+g.plotH) return;
+    const t=g.tStart+((cx-g.x0)/g.plotW)*g.tWin;
+    const n=nearestSample(t); if(!n || n.d>0.6) return;
+    if(st.marks.length>=2) st.marks=[];
+    st.marks.push({t:n.t,x:n.x});
+    e.preventDefault();
+  }
+  function graphMove(e){
+    if(pinch && e.touches && e.touches.length>=2){
+      const ti=touchMid(e), g=gplot; if(!g) return;
+      ensureManual();
+      zoomAround(ti.d/Math.max(1,pinch.d0), pinch.at, pinch.as);   // зум вокруг точки под пальцами
+      const V=st.view; if(!V.auto){                                 // пан по смещению середины
+        const tWin=Math.max(T_WINDOW,st.t)/V.z, shownS=V.ar*tWin;
+        V.tc -= ((ti.mx-pinch.mx)/g.plotW)*tWin;
+        V.sc += ((ti.my-pinch.my)/g.plotH)*shownS;
+        clampView();
+      }
+      pinch.d0=ti.d; pinch.mx=ti.mx; pinch.my=ti.my; e.preventDefault(); return;
+    }
+    if(dragMark<0) return;
+    const g=gplot; if(!g){ return; }
+    const {cx}=graphXY(e);
+    let t=g.tStart+((cx-g.x0)/g.plotW)*g.tWin;
+    const n=nearestSample(t);                 // тянем вдоль кривой (прилипает к ближайшему отсчёту)
+    if(n) st.marks[dragMark]={t:n.t,x:n.x};
+    e.preventDefault();
+  }
+  function graphUp(e){ dragMark=-1; if(!e||!e.touches||e.touches.length<2) pinch=null; }
+  graph.addEventListener('mousedown',graphDown);
+  graph.addEventListener('touchstart',graphDown,{passive:false});
+  window.addEventListener('mousemove',graphMove);
+  window.addEventListener('touchmove',graphMove,{passive:false});
+  window.addEventListener('mouseup',graphUp);
+  window.addEventListener('touchend',graphUp);
+
+  // ---------- Дорога: листание + постановка/перетаскивание точек A/B ----------
+  let scenePan=null;        // {startX, startView, moved}
+  let scenePinDrag=-1;
+  function sceneXY(e){
+    const r=scene.getBoundingClientRect();
+    return { cx:(e.touches?e.touches[0].clientX:e.clientX)-r.left,
+             cy:(e.touches?e.touches[0].clientY:e.clientY)-r.top };
+  }
+  const coordAt=cx=>{ const s=sgeo; return s.aCoord+(cx-s.cX)/s.scale; };
+  const pinScreenX=mk=>{ const s=sgeo; return s.cX+(mk.x-s.aCoord)*s.scale; };
+  function nearestByCoord(coord){
+    let best=null,bd=1e9;
+    for(const p of st.hist){ const d=Math.abs(p.x-coord); if(d<bd){bd=d;best=p;} }
+    return best?{t:best.t,x:best.x,d:bd}:null;
+  }
+  function sceneDown(e){
+    if(!sgeo) return;
+    if(e.touches && e.touches.length>=2) return;
+    const {cx}=sceneXY(e);
+    for(let i=0;i<st.marks.length;i++){                 // захватить существующий пин?
+      if(Math.abs(cx-pinScreenX(st.marks[i]))<18){ scenePinDrag=i; e.preventDefault(); return; }
+    }
+    scenePan={startX:cx, startView:(st.sceneView==null?st.x:st.sceneView), moved:0};
+    e.preventDefault();
+  }
+  function sceneMove(e){
+    if(!sgeo) return;
+    if(scenePinDrag>=0){
+      const {cx}=sceneXY(e); const n=nearestByCoord(coordAt(cx));
+      if(n) st.marks[scenePinDrag]={t:n.t,x:n.x};
+      e.preventDefault(); return;
+    }
+    if(scenePan){
+      const {cx}=sceneXY(e); const dx=cx-scenePan.startX;
+      scenePan.moved=Math.max(scenePan.moved,Math.abs(dx));
+      st.sceneView=scenePan.startView - dx/sgeo.scale;    // тянем дорогу за пальцем
+      e.preventDefault();
+    }
+  }
+  function sceneUp(){
+    if(scenePinDrag>=0){ scenePinDrag=-1; return; }
+    if(scenePan){
+      if(scenePan.moved<6 && st.hist.length){              // тап (не протяжка) → поставить точку
+        const n=nearestByCoord(coordAt(scenePan.startX));
+        if(n && n.d<8){
+          if(st.marks.length>=2) st.marks=[];
+          st.marks.push({t:n.t,x:n.x});
+        }
+      }
+      scenePan=null;
+    }
+  }
+  scene.addEventListener('mousedown',sceneDown);
+  scene.addEventListener('touchstart',sceneDown,{passive:false});
+  window.addEventListener('mousemove',sceneMove);
+  window.addEventListener('touchmove',sceneMove,{passive:false});
+  window.addEventListener('mouseup',sceneUp);
+  window.addEventListener('touchend',sceneUp);
+  document.getElementById('btnSceneCenter').addEventListener('click',()=>{ st.sceneView=null; });
+
+  // ---------- Управление ----------
+  function setRunning(on){ st.running=on; if(on){ st.lastTs=performance.now(); st.stillTime=0; } }
+  function cancelDemo(){ st.demo=false; }
+
+  btnCurve.addEventListener('click',()=>{
+    if(st.dots.length>=2){ st.animOn=true; st.animP=0; st.animLast=performance.now(); }
+  });
+  document.getElementById('btnZoomIn').addEventListener('click',()=>zoomCenter(1.4));
+  document.getElementById('btnZoomOut').addEventListener('click',()=>zoomCenter(1/1.4));
+  document.getElementById('btnZoomFit').addEventListener('click',()=>{ st.view.auto=true; });
+  btnReset.addEventListener('click',()=>{
+    st.t=0;st.v=0;st.x=0;st.a=0;st.throttle=0;st.brake=0;st.hist=[];st.vRange=V_MIN_RANGE;st.sLo=0;st.sHi=60;st.dir=1;st.broken=false;st.marks=[];st.dots=[];st.nextDotT=0;st.animP=0;st.animOn=false;st.stillTime=0;st.truck=null;st.crashed=false;st.crashT=0;st.carAng=0;st.carAngV=0;st.crashDX=0;st.crashVX=0;st.debris=[];st.smoke=[];st.shake=0;
+    cancelDemo(); renderPedals(); setRunning(false); st.view.auto=true; st.sceneView=null;   // снова ждём нажатия газа
+  });
+  btnDemo.addEventListener('click',()=>{
+    st.t=0;st.v=0;st.x=0;st.a=0;st.hist=[];st.vRange=V_MIN_RANGE;st.sLo=0;st.sHi=60;st.dir=1;st.broken=false;st.marks=[];st.dots=[];st.nextDotT=0;st.animP=0;st.animOn=false;st.stillTime=0;st.truck=null;st.crashed=false;st.crashT=0;st.carAng=0;st.carAngV=0;st.crashDX=0;st.crashVX=0;st.debris=[];st.smoke=[];st.shake=0;
+    st.demo=true; renderPedals(); setRunning(true); st.view.auto=true; st.sceneView=null;
+  });
+
+  // ---------- Один шаг динамики (знаковая скорость) ----------
+  function physStep(dt){
+    const v=st.v, spd=Math.abs(v), sgn=Math.sign(v);
+    const S=surfaceAt(st.x);                                      // текущее покрытие
+    const cap=Math.min(S.grip*PHYS.Fmax, PHYS.Pmax/Math.max(spd,PHYS.veps)); // сцепление ограничивает тягу
+    const Fdrive = st.broken ? 0 : st.dir*st.throttle*cap;        // привод разрушен → тяги нет
+    const regenGain=Math.max(0, Math.min(1, 1-st.throttle/0.1));
+    const Fregen = (st.broken || spd<=0.05) ? 0 : regenGain*Math.min(PHYS.FregenMax, PHYS.Pregen/Math.max(spd,PHYS.veps))*S.grip;
+    const Froll = S.crr*PHYS.m*9.81;                              // сопротивление качению зависит от покрытия
+    const resist=Fregen + st.brake*PHYS.FbrakeMax*S.grip + PHYS.kDrag*spd*spd + (spd>0.05?Froll:0);
+    let a, vn;
+    if(spd<1e-6){
+      a=Fdrive/PHYS.m; vn=v+a*dt;
+    }else{
+      a=(Fdrive - sgn*resist)/PHYS.m; vn=v+a*dt;
+      if(Math.sign(vn)!==sgn && Math.sign(vn)!==0 && Math.sign(Fdrive)!==Math.sign(vn)){ vn=0; a=(vn-v)/dt; }
+    }
+    st.v=vn; st.a=a; st.x+=vn*dt;
+  }
+
+  // ---------- Главный цикл ----------
+  function loop(now){
+    if(st.running){
+      let dt=(now-st.lastTs)/1000; st.lastTs=now;
+      if(dt>DT_MAX)dt=DT_MAX;
+      if(dt>0){
+       if(!st.crashed){
+        st.t+=dt;
+        if(st.demo){ const p=demoPed(st.t); st.throttle=p[0]; st.brake=p[1]; st.dir=p[2]; renderPedals(); }
+        physStep(dt);
+        st.hist.push({t:st.t,v:st.v,x:st.x});
+        const tMin=st.t-(T_WINDOW+2);
+        while(st.hist.length&&st.hist[0].t<tMin)st.hist.shift();
+        // отметки каждые 2 секунды
+        while(st.t>=st.nextDotT){ st.dots.push({t:st.nextDotT, x:st.x}); st.nextDotT+=DOT_DT; }
+        // автостоп записи: если стои́м дольше STILL_STOP секунд (не в демо)
+        if(Math.abs(st.v)<0.05) st.stillTime+=dt; else st.stillTime=0;
+        if(!st.demo && st.stillTime>=STILL_STOP){
+          if(st.dots.length && st.t-st.dots[st.dots.length-1].t>0.1) st.dots.push({t:st.t, x:st.x});
+          setRunning(false);
+        }
+        if(st.demo&&st.t>=T_DEMO){
+          // финальная метка на фактическом конце заезда (если он не попал на 2-секундную сетку)
+          if(st.dots.length && st.t-st.dots[st.dots.length-1].t>0.1) st.dots.push({t:st.t, x:st.x});
+          st.demo=false; setRunning(false);
+        }
+        // === событие: на 400 м НАВСТРЕЧУ выезжает грузовик и бьёт машину в лоб ===
+        if(!st.truck && st.x>=400){
+          st.truck={ x: st.x+95, v: -(Math.max(0,st.v)+30) };   // встречный: едет в −x, ~100 км/ч быстрее
+        }
+        if(st.truck){
+          st.truck.x+=st.truck.v*dt;
+          if(st.truck.x<=st.x+6){                                // лобовой удар
+            // почти неупругое столкновение: масса грузовика >> массы машины
+            const M=7000, mc=PHYS.m, vcm=(M*st.truck.v + mc*st.v)/(M+mc);   // скорость «свалки», < 0
+            const impV=Math.abs(st.truck.v)+Math.max(0,st.v);    // скорость сближения, м/с
+            st.crashed=true; st.crashT=0; st.demo=false;
+            st.truck.x=st.x+6; st.truck.v=0;
+            st.v=0; st.crashDX=0;
+            st.crashVX=Math.max(vcm, -24);                       // машину сносит назад (ограничиваем)
+            st.carAngV=-Math.min(6, impV*0.10);                  // доворот (затухающий), не бесконечное вращение
+            st.shake=Math.min(14, impV*0.4);                     // тряска кадра
+            // осколки (стекло/детали) разлетаются вверх-наружу от передка
+            for(let i=0;i<16;i++){
+              const a=-Math.PI/2 + (Math.random()-0.5)*1.7, sp=70+Math.random()*Math.min(260,impV*8);
+              st.debris.push({x:20,y:-6, vx:Math.cos(a)*sp + 30, vy:Math.sin(a)*sp - 20, life:1, sz:1.5+Math.random()*3, col:Math.random()<0.5?'#cfd8e2':(Math.random()<0.5?'#8a6b3a':'#b23b3b')});
+            }
+            // дым от удара
+            for(let i=0;i<5;i++) st.smoke.push({x:18+(Math.random()-0.5)*16, y:-4-Math.random()*8, r:6+Math.random()*8, life:1});
+            if(st.dots.length && st.t-st.dots[st.dots.length-1].t>0.1) st.dots.push({t:st.t, x:st.x});
+          }
+        }
+       } else {
+        // краш-режим: свалку (машина+грузовик) несёт назад, трение тормозит; доворот затухает; S заморожен
+        st.crashT+=dt;
+        const fr=42;                                             // м/с² торможение свалки (сминание + трение) — короткий снос
+        if(st.crashVX<0) st.crashVX=Math.min(0, st.crashVX+fr*dt); else st.crashVX=Math.max(0, st.crashVX-fr*dt);
+        st.crashDX+=st.crashVX*dt;
+        st.carAng+=st.carAngV*dt; st.carAngV*=Math.max(0,1-2.4*dt);
+        if(st.truck) st.truck.x=st.x+6+st.crashDX;               // грузовик едет вместе с машиной
+        if(Math.abs(st.crashVX)<0.05 && st.crashT>1.6){ st.carAngV=0; st.crashVX=0; setRunning(false); }
+       }
+      }
+    }
+    // анимация проведения кривой (идёт независимо от записи)
+    if(st.animOn){
+      st.animP += (now-st.animLast)/1000/CURVE_DUR; st.animLast=now;
+      if(st.animP>=1){ st.animP=1; st.animOn=false; }
+    }
+    // эффекты столкновения (живут независимо от записи)
+    if(st.debris.length||st.smoke.length||st.shake>0){
+      const fdt = st.fxLast ? Math.min(0.05,(now-st.fxLast)/1000) : 0;
+      if(st.shake>0) st.shake=Math.max(0, st.shake-26*fdt);
+      for(const d of st.debris){ d.vy+=900*fdt; d.x+=d.vx*fdt; d.y+=d.vy*fdt; if(d.y>20){ d.y=20; d.vy*=-0.38; d.vx*=0.55; } d.life-=fdt/1.2; }
+      st.debris=st.debris.filter(d=>d.life>0);
+      for(const s of st.smoke){ s.r+=16*fdt; s.x+=8*fdt; s.y-=12*fdt; s.life-=fdt/1.8; }
+      st.smoke=st.smoke.filter(s=>s.life>0);
+    }
+    st.fxLast=now;
+    drawScene(); drawGraph(); updateReadouts();
+    requestAnimationFrame(loop);
+  }
+
+  // ---------- Сцена: дорога скроллится, машина на месте ----------
+  function drawScene(){
+    const w=scene._w,h=scene._h; sctx.clearRect(0,0,w,h);
+    sctx.save();
+    if(st.shake>0.1) sctx.translate((Math.random()-0.5)*st.shake, (Math.random()-0.5)*st.shake);
+    const roadY=h*0.34, roadH=h*0.40, cy=roadY+roadH/2;
+    const scale=7; // пикс/метр для разметки
+
+    sctx.fillStyle='#10161e'; sctx.fillRect(0,roadY,w,roadH);
+
+    // полосы покрытий (скроллятся вместе с миром)
+    const aCoord = (st.sceneView==null ? st.x : st.sceneView);   // координата под точкой 40%
+    const cX=w*0.40, sxw=coord=>cX+(coord-aCoord)*scale;
+    for(let i=0;i<ZONES.length;i++){
+      const z=ZONES[i];
+      const ws=(i===0)?-1e9:z.x0, we=(i<ZONES.length-1)?ZONES[i+1].x0:1e9;
+      const pxs=Math.max(0,sxw(ws)), pxe=Math.min(w,sxw(we));
+      if(pxe<=pxs) continue;
+      sctx.fillStyle=z.col; sctx.fillRect(pxs,roadY,pxe-pxs,roadH);
+      const lx=(pxs+pxe)/2;
+      if(lx>22 && lx<w-22){
+        sctx.fillStyle='rgba(255,255,255,.32)'; sctx.font='600 11px "IBM Plex Sans", sans-serif';
+        sctx.textAlign='center'; sctx.textBaseline='top';
+        sctx.fillText(z.name, lx, roadY+4);
+      }
+    }
+    for(let i=1;i<ZONES.length;i++){ const px=sxw(ZONES[i].x0); if(px>0&&px<w){ sctx.strokeStyle='rgba(255,255,255,.20)'; sctx.lineWidth=1; sctx.beginPath(); sctx.moveTo(px,roadY); sctx.lineTo(px,roadY+roadH); sctx.stroke(); } }
+
+    sctx.strokeStyle='#2a3645'; sctx.lineWidth=2;
+    sctx.beginPath(); sctx.moveTo(0,roadY); sctx.lineTo(w,roadY);
+    sctx.moveTo(0,roadY+roadH); sctx.lineTo(w,roadY+roadH); sctx.stroke();
+
+    // штрихи осевой
+    const period=72, dashLen=40;
+    const off=((aCoord*scale)%period+period)%period;
+    sctx.strokeStyle='#3a4757'; sctx.lineWidth=4;
+    for(let px=-off; px<w+period; px+=period){
+      sctx.beginPath(); sctx.moveTo(px,cy); sctx.lineTo(px+dashLen,cy); sctx.stroke();
+    }
+    // скоростные штрихи
+    const al=Math.min(0.4, Math.abs(st.v)/80);
+    if(al>0.02){
+      sctx.strokeStyle='rgba(120,180,210,'+al+')'; sctx.lineWidth=2;
+      const so=((st.x*scale*1.6)%90+90)%90;
+      for(let yy=roadY+10; yy<roadY+roadH-6; yy+=20){
+        let px=w-((so+(yy*13)%90)%(w+60));
+        sctx.beginPath(); sctx.moveTo(px,yy); sctx.lineTo(px-26,yy); sctx.stroke();
+      }
+    }
+
+    // ось x вдоль дороги (метры), скроллится вместе с миром
+    const carX=w*0.40, axisY=roadY+roadH+3;
+    const sx=coord=>carX+(coord-aCoord)*scale;
+    sctx.strokeStyle='#2a3645'; sctx.lineWidth=1;
+    sctx.beginPath(); sctx.moveTo(0,axisY); sctx.lineTo(w,axisY); sctx.stroke();
+    sctx.font='10px "IBM Plex Mono", monospace'; sctx.textAlign='center'; sctx.textBaseline='top';
+    const step=10, xLeft=aCoord-carX/scale, xRight=aCoord+(w-carX)/scale;
+    for(let X=Math.ceil(xLeft/step)*step; X<=xRight+1e-6; X+=step){
+      const px=sx(X), zero=(Math.abs(X)<1e-6);
+      sctx.strokeStyle=zero?C('--accent-s'):'#33414f'; sctx.lineWidth=zero?2:1;
+      sctx.beginPath(); sctx.moveTo(px,axisY); sctx.lineTo(px,axisY+(zero?9:5)); sctx.stroke();
+      sctx.fillStyle=zero?C('--accent-s'):'#5d6775';
+      sctx.fillText(Math.round(X), px, axisY+10);
+    }
+    // указатель положения машины на оси (в её реальной координате)
+    const carSX=sx(st.x + (st.crashed?st.crashDX:0));
+    if(carSX>=0 && carSX<=w){
+      sctx.fillStyle=C('--accent-v');
+      sctx.beginPath(); sctx.moveTo(carSX,axisY-1); sctx.lineTo(carSX-4,axisY-8); sctx.lineTo(carSX+4,axisY-8); sctx.closePath(); sctx.fill();
+    }
+    sctx.fillStyle=C('--muted'); sctx.textAlign='left'; sctx.textBaseline='bottom'; sctx.font='10px "IBM Plex Mono", monospace';
+    sctx.fillText('S, м', 4, axisY-2);
+
+    if(st.truck){ const tSX=sx(st.truck.x); if(tSX>-80&&tSX<w+80) drawTruck(tSX, cy+2, st.truck.v<0 || st.crashed); }
+    const hop = st.crashed ? Math.max(0, Math.sin(Math.min(Math.PI, st.crashT*3.2))*9) : 0;
+    drawCar(carSX, cy+2-hop, st.broken, st.crashed?st.carAng:0, st.crashed?Math.min(1,st.crashT*3):0);
+    if(st.crashed && st.crashT<0.12){            // короткая вспышка удара
+      const a=1-st.crashT/0.12;
+      sctx.fillStyle='rgba(255,236,180,'+(a*0.7)+')';
+      sctx.beginPath(); sctx.arc(sx(st.x)+10, cy, 26, 0, Math.PI*2); sctx.fill();
+    }
+    sgeo={cX, scale, aCoord, w, roadY, roadH};
+    if(st.crashed){
+      sctx.fillStyle='rgba(255,93,93,.16)'; sctx.fillRect(0,roadY,w,roadH);
+      sctx.fillStyle=C('--brake'); sctx.textAlign='center'; sctx.textBaseline='top';
+      sctx.font='700 14px "IBM Plex Sans", sans-serif';
+      sctx.fillText('СТОЛКНОВЕНИЕ — нажми ⟲ Сброс', w/2, roadY+6);
+    }
+
+    // выбранные точки A и B на дороге (в их координатах x; A — раньше по времени)
+    if(st.marks.length){
+      const lm=st.marks.slice().sort((a,b)=>a.t-b.t);
+      const mgd=(lm.length===2 && Math.abs(lm[1].t-lm[0].t)<=1e-3);
+      lm.forEach((mk,i)=>{
+        if(mgd && i===1) return;
+        const px=sx(mk.x); if(px<10||px>w-10) return;
+        const red=mgd;
+        sctx.strokeStyle=red?'rgba(255,93,93,.9)':'rgba(255,255,255,.85)'; sctx.lineWidth=1.5; sctx.setLineDash([4,3]);
+        sctx.beginPath(); sctx.moveTo(px,roadY); sctx.lineTo(px,roadY+roadH); sctx.stroke(); sctx.setLineDash([]);
+        sctx.fillStyle=red?'#ff5d5d':'#fff'; sctx.beginPath(); sctx.arc(px,roadY,9,0,Math.PI*2); sctx.fill();
+        if(!red){
+          sctx.fillStyle='#0a0e14'; sctx.font='700 12px "IBM Plex Mono", monospace'; sctx.textAlign='center'; sctx.textBaseline='middle';
+          sctx.fillText(i===0?'A':'B', px, roadY);
+        }
+      });
+    }
+
+    // эффекты столкновения: дым и осколки (от точки удара)
+    if(st.smoke.length || st.debris.length){
+      const ox=sx(st.x), oy=cy;
+      for(const s of st.smoke){
+        const a=Math.max(0,s.life)*0.30;
+        sctx.fillStyle='rgba(150,156,164,'+a+')';
+        sctx.beginPath(); sctx.arc(ox+s.x, oy+s.y, s.r, 0, Math.PI*2); sctx.fill();
+      }
+      for(const d of st.debris){
+        sctx.globalAlpha=Math.max(0,Math.min(1,d.life));
+        sctx.fillStyle=d.col;
+        sctx.fillRect(ox+d.x-d.sz/2, oy+d.y-d.sz/2, d.sz, d.sz);
+      }
+      sctx.globalAlpha=1;
+    }
+
+    // HUD
+    sctx.fillStyle=C('--ink'); sctx.textAlign='left'; sctx.textBaseline='top';
+    sctx.font='600 30px "IBM Plex Mono", monospace';
+    sctx.fillText(Math.round(Math.abs(st.v)*3.6), 14, 12);
+    sctx.fillStyle=C('--muted'); sctx.font='12px "IBM Plex Sans", sans-serif';
+    sctx.fillText('км/ч', 14, 46);
+    sctx.restore();
+  }
+
+  function drawCar(cx,cy,broken,ang,crush){
+    sctx.save(); sctx.translate(cx,cy);
+    if(ang) sctx.rotate(ang);                   // доворот при столкновении
+    else if(broken) sctx.rotate(-0.10);         // перекошена
+    const W=58,H=22;
+    sctx.fillStyle='rgba(0,0,0,.4)'; sctx.beginPath(); sctx.ellipse(0,H*0.95,W*0.55,6,0,0,Math.PI*2); sctx.fill();
+    sctx.fillStyle=broken?'#9aa3ad':C('--car'); rrect(-W/2,-H/2,W,H,6); sctx.fill();
+    sctx.beginPath(); sctx.moveTo(-W*0.24,-H/2); sctx.lineTo(-W*0.10,-H*1.05);
+    sctx.lineTo(W*0.18,-H*1.05); sctx.lineTo(W*0.32,-H/2); sctx.closePath(); sctx.fillStyle=broken?'#9aa3ad':C('--car'); sctx.fill();
+    sctx.fillStyle=C('--car-dark'); sctx.beginPath();
+    sctx.moveTo(-W*0.17,-H/2-1); sctx.lineTo(-W*0.06,-H*0.98); sctx.lineTo(W*0.13,-H*0.98); sctx.lineTo(W*0.24,-H/2-1); sctx.closePath(); sctx.fill();
+    sctx.fillStyle=broken?C('--brake'):C('--accent-v'); sctx.fillRect(-W/2+3,-3,W-6,3);
+    if(!broken){ sctx.fillStyle='#fff6c8'; sctx.beginPath(); sctx.arc(W/2-3,-1,2.6,0,Math.PI*2); sctx.fill(); }
+    sctx.fillStyle='#0a0d12';
+    // заднее левое колесо на месте; переднее правое — отлетает при поломке
+    sctx.beginPath(); sctx.arc(-W*0.28,H/2,7,0,Math.PI*2); sctx.fill();
+    sctx.fillStyle='#222c38'; sctx.beginPath(); sctx.arc(-W*0.28,H/2,2.6,0,Math.PI*2); sctx.fill();
+    if(!broken){
+      sctx.fillStyle='#0a0d12'; sctx.beginPath(); sctx.arc(W*0.28,H/2,7,0,Math.PI*2); sctx.fill();
+      sctx.fillStyle='#222c38'; sctx.beginPath(); sctx.arc(W*0.28,H/2,2.6,0,Math.PI*2); sctx.fill();
+    }
+    if(crush>0){                                 // смятый передок (по ходу удара, +x)
+      const c=Math.min(1,crush);
+      sctx.fillStyle='#16191e';
+      sctx.beginPath();
+      sctx.moveTo(W*0.5, -H*0.5);
+      sctx.lineTo(W*0.5 - 10*c, -H*0.22);
+      sctx.lineTo(W*0.5 - 3*c,  H*0.05);
+      sctx.lineTo(W*0.5 - 12*c,  H*0.30);
+      sctx.lineTo(W*0.5,  H*0.5);
+      sctx.closePath(); sctx.fill();
+      sctx.strokeStyle='rgba(0,0,0,.55)'; sctx.lineWidth=1;
+      sctx.beginPath(); sctx.moveTo(W*0.30,-H*0.30); sctx.lineTo(W*0.44,H*0.12);
+      sctx.moveTo(W*0.36,-H*0.05); sctx.lineTo(W*0.46,-H*0.28); sctx.stroke();
+    }
+    sctx.restore();
+
+    if(broken){
+      // отвалившееся колесо лежит на дороге
+      sctx.save();
+      sctx.fillStyle='#0a0d12'; sctx.beginPath(); sctx.ellipse(cx+W*0.5, cy+H*0.7, 7,4,0,0,Math.PI*2); sctx.fill();
+      sctx.restore();
+      // дым из-под капота
+      const tt=performance.now()/1000;
+      for(let i=0;i<4;i++){
+        const ph=((tt*0.7)+i*0.27)%1;
+        const px=cx+W*0.32+i*3, py=cy-12-ph*30, r=4+ph*11;
+        sctx.globalAlpha=(1-ph)*0.45;
+        sctx.fillStyle=(i%2)?'#8b97a6':'#5a6675';
+        sctx.beginPath(); sctx.arc(px,py,r,0,Math.PI*2); sctx.fill();
+      }
+      sctx.globalAlpha=1;
+    }
+  }
+  function rrect(x,y,w,h,r){sctx.beginPath();sctx.moveTo(x+r,y);sctx.arcTo(x+w,y,x+w,y+h,r);sctx.arcTo(x+w,y+h,x,y+h,r);sctx.arcTo(x,y+h,x,y,r);sctx.arcTo(x,y,x+w,y,r);sctx.closePath();}
+  function drawTruck(cx,cy,faceLeft){
+    sctx.save(); sctx.translate(cx,cy); if(faceLeft) sctx.scale(-1,1);
+    const W=92,H=30;
+    sctx.fillStyle='rgba(0,0,0,.42)'; sctx.beginPath(); sctx.ellipse(0,H*0.82,W*0.52,7,0,0,Math.PI*2); sctx.fill();
+    // прицеп (слева) + кабина (справа, по ходу движения +x)
+    sctx.fillStyle='#39414f'; rrect(-W/2,-H/2,W*0.60,H,4); sctx.fill();
+    sctx.fillStyle='#b23b3b'; rrect(W*0.10,-H/2-3,W*0.38,H+3,5); sctx.fill();
+    sctx.fillStyle='#0a0d12'; rrect(W*0.30,-H/2,W*0.15,H*0.42,2); sctx.fill();   // лобовое
+    sctx.fillStyle='#ffe9a8'; sctx.beginPath(); sctx.arc(W*0.47,H*0.18,2.6,0,Math.PI*2); sctx.fill(); // фара
+    sctx.fillStyle='#0a0d12';
+    for(const wx of [-W*0.40,-W*0.18,W*0.06,W*0.34]){ sctx.beginPath(); sctx.arc(wx,H/2,8,0,Math.PI*2); sctx.fill(); }
+    sctx.fillStyle='#222c38';
+    for(const wx of [-W*0.40,-W*0.18,W*0.06,W*0.34]){ sctx.beginPath(); sctx.arc(wx,H/2,3,0,Math.PI*2); sctx.fill(); }
+    sctx.restore();
+  }
+
+  // ---------- График s(t): путь от времени ----------
+  function drawGraph(){
+    const w=graph._w,h=graph._h; gctx.clearRect(0,0,w,h);
+    const padL=52,padR=14,padT=14,padB=40;
+    const plotW=w-padL-padR, plotH=h-padT-padB, x0=padL, y0=padT;
+
+    // диапазон данных (история + отметки)
+    let sMin=Infinity, sMax=-Infinity, vHi=0, vLo=0;
+    for(const p of st.hist){ if(p.x<sMin)sMin=p.x; if(p.x>sMax)sMax=p.x; if(p.v>vHi)vHi=p.v; if(p.v<vLo)vLo=p.v; }
+    for(const d of st.dots){ if(d.x<sMin)sMin=d.x; if(d.x>sMax)sMax=d.x; }
+    if(!isFinite(sMin)){ sMin=0; sMax=10; }
+    const dataMid=(sMin+sMax)/2;
+
+    // === вид: auto (вписывание) либо ручной зум/пан ===
+    const baseWin=Math.max(T_WINDOW, st.t);
+    const V=st.view;
+    let tWin, tStart, tEnd, sMid, vRange;
+    const tStep = (V.auto && baseWin<=30) ? 2 : niceStep(V.auto?baseWin:baseWin/V.z);
+    if(V.auto){
+      tWin=baseWin; tStart=0; tEnd=baseWin; sMid=dataMid;
+      vRange=Math.max(20, sMax-sMin);          // вписываем данные
+    }else{
+      tWin=baseWin/V.z; tStart=V.tc-tWin/2; tEnd=V.tc+tWin/2; sMid=V.sc;
+      vRange=V.ar*tWin;                          // желаемый верт. диапазон (масштаб по обеим осям одинаков)
+    }
+    const tx=t=>x0+((t-tStart)/tWin)*plotW;
+
+    // квадратно-круглая сетка: шаг S подгоняем так, чтобы клетки были квадратные, подписи — круглые
+    const cellPx=(tStep/tWin)*plotW;            // сторона клетки по времени, px
+    const cellsV=Math.max(1, plotH/cellPx);
+    const sStep=niceCeil(vRange/cellsV);        // круглый шаг по S
+    const shownS=cellsV*sStep;                  // → клетки строго квадратные
+    const targLo=sMid-shownS/2, targHi=sMid+shownS/2;
+    if(V.auto){ st.sLo+=(targLo-st.sLo)*0.12; st.sHi+=(targHi-st.sHi)*0.12; }
+    else      { st.sLo=targLo; st.sHi=targHi; }
+    if(st.sHi-st.sLo<1) st.sHi=st.sLo+1;
+    const sLo=st.sLo, sHi=st.sHi;
+    const sy=s=>y0+plotH-((s-sLo)/(sHi-sLo))*plotH;
+    gplot={x0,y0,plotW,plotH,tStart,tWin,sLo,sHi};
+
+    const fmtT=v=>tStep<1?v.toFixed(1):v.toFixed(0);
+    const fmtS=v=>sStep<1?v.toFixed(1):Math.round(v).toString();
+
+    // --- сетка «в клетку»: мелкие квадраты (minor) + крупные с подписями (major) ---
+    const sub = Math.max(1, Math.min(10, Math.round(cellPx/24)));  // делений внутри крупной клетки
+    if(sub>1){
+      const tMinor=tStep/sub, sMinor=sStep/sub;
+      gctx.strokeStyle='rgba(120,140,160,0.08)'; gctx.lineWidth=1; gctx.beginPath();
+      for(let t=Math.ceil(tStart/tMinor)*tMinor; t<=tEnd+1e-6; t+=tMinor){ const x=tx(t); gctx.moveTo(x,y0); gctx.lineTo(x,y0+plotH); }
+      for(let s=Math.ceil(sLo/sMinor)*sMinor; s<=sHi+1e-6; s+=sMinor){ const y=sy(s); gctx.moveTo(x0,y); gctx.lineTo(x0+plotW,y); }
+      gctx.stroke();
+    }
+
+    // крупная сетка по пути (S) + подписи
+    gctx.font='11px "IBM Plex Mono", monospace'; gctx.textBaseline='middle';
+    gctx.textAlign='right';
+    for(let s=Math.ceil(sLo/sStep)*sStep; s<=sHi+1e-6; s+=sStep){
+      const y=sy(s);
+      gctx.strokeStyle=(Math.abs(s)<1e-6)?C('--zero'):C('--line-soft'); gctx.lineWidth=(Math.abs(s)<1e-6)?1.5:1;
+      gctx.beginPath(); gctx.moveTo(x0,y); gctx.lineTo(x0+plotW,y); gctx.stroke();
+      gctx.fillStyle=C('--muted'); gctx.fillText(fmtS(s), x0-8, y);
+    }
+    // крупная сетка по времени + подписи
+    gctx.textAlign='center'; gctx.textBaseline='top';
+    for(let t=Math.ceil(tStart/tStep)*tStep; t<=tEnd+1e-6; t+=tStep){
+      const x=tx(t);
+      gctx.strokeStyle=C('--line-soft'); gctx.lineWidth=1;
+      gctx.beginPath(); gctx.moveTo(x,y0); gctx.lineTo(x,y0+plotH); gctx.stroke();
+      gctx.fillStyle=C('--muted'); gctx.fillText(fmtT(t), x, y0+plotH+6);
+    }
+    // подписи осей
+    gctx.save(); gctx.fillStyle=C('--muted'); gctx.textAlign='center';
+    gctx.translate(14,y0+plotH/2); gctx.rotate(-Math.PI/2); gctx.fillText('S, м',0,0); gctx.restore();
+    gctx.fillStyle=C('--muted'); gctx.textAlign='right'; gctx.textBaseline='top'; gctx.fillText('t, с', x0+plotW, y0+plotH+22);
+
+    // ---- точки каждые 2 с (цвет = покрытие) + кривая по кнопке ----
+    gctx.save();
+    gctx.beginPath(); gctx.rect(x0,y0,plotW,plotH); gctx.clip();
+    // кривая (анимированно, от первой точки) — сегменты красятся по покрытию
+    if(st.animP>0 && st.dots.length>=2){
+      const poly=catmullPoly(st.dots);
+      const showN=Math.max(2, Math.floor(poly.length*st.animP));
+      gctx.lineJoin='round'; gctx.lineCap='round'; gctx.lineWidth=2.4; gctx.shadowBlur=6;
+      let i=0;
+      while(i<showN-1){
+        const col=surfaceAt((poly[i].x+poly[i+1].x)/2).gcol;
+        gctx.strokeStyle=col; gctx.shadowColor=col;
+        gctx.beginPath(); gctx.moveTo(tx(poly[i].t),sy(poly[i].x)); let j=i+1; gctx.lineTo(tx(poly[j].t),sy(poly[j].x));
+        while(j+1<showN && surfaceAt((poly[j].x+poly[j+1].x)/2).gcol===col){ j++; gctx.lineTo(tx(poly[j].t),sy(poly[j].x)); }
+        gctx.stroke(); i=j;
+      }
+      gctx.shadowBlur=0;
+    }
+    // отметки каждые 2 с
+    for(const d of st.dots){
+      const X=tx(d.t),Y=sy(d.x);
+      gctx.fillStyle=surfaceAt(d.x).gcol; gctx.beginPath(); gctx.arc(X,Y,4.5,0,Math.PI*2); gctx.fill();
+      gctx.strokeStyle='#0a0e14'; gctx.lineWidth=1.5; gctx.stroke();
+    }
+    // текущая (живая) позиция
+    if(st.hist.length){
+      const p=st.hist[st.hist.length-1], X=tx(p.t), Y=sy(p.x);
+      gctx.strokeStyle=surfaceAt(p.x).gcol; gctx.globalAlpha=.8; gctx.lineWidth=1.5;
+      gctx.beginPath(); gctx.arc(X,Y,3,0,Math.PI*2); gctx.stroke(); gctx.globalAlpha=1;
+    }
+    gctx.restore();
+    // ---- измерение: 2 точки, секущая и прямоугольный треугольник Δx/Δt ----
+    if(st.marks.length){
+      gctx.save();
+      gctx.beginPath(); gctx.rect(x0,y0,plotW,plotH); gctx.clip();
+      const pts=st.marks.map(mk=>({t:mk.t,x:mk.x,px:tx(mk.t),py:sy(mk.x)}));
+      pts.sort((a,b)=>a.t-b.t);                         // A — раньше по времени, B — позже
+      const merged = pts.length===2 && Math.abs(pts[1].t-pts[0].t)<=1e-3;  // A и B слились → касательная
+      if(pts.length===2 && !merged){
+        const A=pts[0], B=pts[1], cx2=B.px, cy2=A.py;   // прямой угол в (t_B, x_A)
+        const dt=B.t-A.t, dx=B.x-A.x;
+        // заливка треугольника
+        gctx.fillStyle='rgba(255,255,255,.06)';
+        gctx.beginPath(); gctx.moveTo(A.px,A.py); gctx.lineTo(cx2,cy2); gctx.lineTo(B.px,B.py); gctx.closePath(); gctx.fill();
+        // катеты (пунктир): Δt — горизонтальный, Δx — вертикальный
+        gctx.setLineDash([5,4]); gctx.lineWidth=1.5; gctx.strokeStyle='rgba(255,255,255,.6)';
+        gctx.beginPath(); gctx.moveTo(A.px,A.py); gctx.lineTo(cx2,cy2); gctx.stroke();
+        gctx.beginPath(); gctx.moveTo(cx2,cy2); gctx.lineTo(B.px,B.py); gctx.stroke();
+        gctx.setLineDash([]);
+        // прямой угол
+        const sxd=Math.sign(A.px-cx2)||-1, syd=Math.sign(B.py-cy2)||1, q=7;
+        gctx.strokeStyle='rgba(255,255,255,.6)'; gctx.lineWidth=1.5;
+        gctx.beginPath(); gctx.moveTo(cx2+sxd*q,cy2); gctx.lineTo(cx2+sxd*q,cy2+syd*q); gctx.lineTo(cx2,cy2+syd*q); gctx.stroke();
+        // ПРЯМАЯ через две точки — во всю ширину поля
+        const m=(B.py-A.py)/(B.px-A.px);
+        gctx.strokeStyle='#ffffff'; gctx.lineWidth=2;
+        gctx.beginPath(); gctx.moveTo(x0, A.py+m*(x0-A.px)); gctx.lineTo(x0+plotW, A.py+m*(x0+plotW-A.px)); gctx.stroke();
+        // подписи катетов: Δt ПОД горизонтальным катетом, Δx сбоку от вертикального
+        gctx.font='11px "IBM Plex Mono", monospace'; gctx.fillStyle='#fff';
+        gctx.textAlign='center'; gctx.textBaseline='top';
+        gctx.fillText('Δt = '+dt.toFixed(2)+' с', (A.px+cx2)/2, cy2+6);
+        gctx.textAlign=(sxd<0?'left':'right'); gctx.textBaseline='middle';
+        gctx.fillText('Δx = '+dx.toFixed(2)+' м', cx2-sxd*5, (cy2+B.py)/2);
+      }
+      if(merged){
+        // A и B в одной точке → красная касательная (наклон = мгновенная скорость)
+        let vInst=0,bd=1e9; for(const p of st.hist){ const d=Math.abs(p.t-pts[0].t); if(d<bd){bd=d;vInst=p.v;} }
+        const t0=pts[0].t, x0m=pts[0].x, xat=tt=>x0m+vInst*(tt-t0);
+        gctx.strokeStyle='#ff5d5d'; gctx.lineWidth=2.4; gctx.lineCap='round';
+        gctx.beginPath(); gctx.moveTo(x0, sy(xat(tStart))); gctx.lineTo(x0+plotW, sy(xat(tEnd))); gctx.stroke();
+      }
+      if(merged){
+        const p=pts[0];
+        gctx.fillStyle='#fff'; gctx.beginPath(); gctx.arc(p.px,p.py,5,0,Math.PI*2); gctx.fill();
+        gctx.strokeStyle='#ff5d5d'; gctx.lineWidth=2; gctx.beginPath(); gctx.arc(p.px,p.py,8.5,0,Math.PI*2); gctx.stroke();
+      }else{
+        pts.forEach((p,i)=>{
+          gctx.strokeStyle='rgba(255,255,255,.25)'; gctx.lineWidth=1.5;
+          gctx.beginPath(); gctx.arc(p.px,p.py,9,0,Math.PI*2); gctx.stroke();
+          gctx.fillStyle='#fff'; gctx.beginPath(); gctx.arc(p.px,p.py,5,0,Math.PI*2); gctx.fill();
+          gctx.strokeStyle='rgba(0,0,0,.5)'; gctx.lineWidth=1; gctx.stroke();
+          const lab=(pts.length===2)?(i===0?'A':'B'):'A';
+          gctx.fillStyle='#fff'; gctx.font='700 12px "IBM Plex Mono", monospace'; gctx.textAlign='center'; gctx.textBaseline='bottom';
+          gctx.fillText(lab, p.px, p.py-11);
+        });
+      }
+      gctx.restore();
+    }
+
+    gctx.strokeStyle=C('--line'); gctx.lineWidth=1; gctx.strokeRect(x0,y0,plotW,plotH);
+  }
+
+  function niceStep(range){const raw=range/4,pow=Math.pow(10,Math.floor(Math.log10(raw))),n=raw/pow;
+    let s; if(n<1.5)s=1;else if(n<3)s=2;else if(n<7)s=5;else s=10; return s*pow;}
+  function niceCeil(v){ if(!(v>0)) return 1; const pow=Math.pow(10,Math.floor(Math.log10(v))), n=v/pow;
+    let s; if(n<=1)s=1;else if(n<=2)s=2;else if(n<=5)s=5;else s=10; return s*pow;}
+
+  // гладкая кривая (Catmull-Rom) через отметки → массив точек {t,x}
+  function catmullPoly(pts){
+    if(pts.length<2) return pts.slice();
+    const out=[], K=18, P=i=>pts[Math.max(0,Math.min(pts.length-1,i))];
+    for(let i=0;i<pts.length-1;i++){
+      const p0=P(i-1),p1=P(i),p2=P(i+1),p3=P(i+2);
+      for(let j=0;j<K;j++){
+        const u=j/K,u2=u*u,u3=u2*u;
+        out.push({
+          t:0.5*((2*p1.t)+(-p0.t+p2.t)*u+(2*p0.t-5*p1.t+4*p2.t-p3.t)*u2+(-p0.t+3*p1.t-3*p2.t+p3.t)*u3),
+          x:0.5*((2*p1.x)+(-p0.x+p2.x)*u+(2*p0.x-5*p1.x+4*p2.x-p3.x)*u2+(-p0.x+3*p1.x-3*p2.x+p3.x)*u3)
+        });
+      }
+    }
+    out.push(pts[pts.length-1]);
+    return out;
+  }
+  function updateReadouts(){
+    roT.textContent=st.t.toFixed(1);
+    roS.textContent=st.x.toFixed(0);
+  }
+
+  // ---------- Старт ----------
+  fitAll(); renderPedals(); requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
