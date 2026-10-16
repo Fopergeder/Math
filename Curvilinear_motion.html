@@ -1,0 +1,632 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Соприкасающиеся окружности</title>
+<style>
+:root{--bg:#fafaf7;--panel:#ffffff;--text:#1f1f1d;--muted:#6b6a65;--line:#d9d7cf;--curve:#b4b2a9;--grid:#efede7;--a1:#1D9E75;--a2:#7F77DD;--osc:#D85A30;--vec:#1f1f1d}
+@media (prefers-color-scheme:dark){:root{--bg:#1a1a19;--panel:#242422;--text:#ecebe6;--muted:#a3a29b;--line:#3a3936;--curve:#6a6964;--grid:#2a2a28;--a1:#5DCAA5;--a2:#AFA9EC;--osc:#F0997B;--vec:#ecebe6}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:1120px;margin:0 auto;padding:16px}
+h1{font-size:20px;font-weight:600;margin:0 0 4px}
+.sub{color:var(--muted);margin:0 0 14px;font-size:14px}
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:16px;align-items:start}
+@media (max-width:820px){.layout{grid-template-columns:minmax(0,1fr)}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px}
+#main{width:100%;height:min(62vh,540px);display:block;touch-action:none;cursor:crosshair;border-radius:8px}
+#kplot{width:100%;height:130px;display:block;margin-top:6px}
+.group{margin-bottom:14px}
+.group:last-child{margin-bottom:0}
+.gt{font-size:12px;color:var(--muted);margin-bottom:6px;text-transform:none}
+.row{display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:14px}
+.row label{flex:1}
+.row input[type=range]{flex:1.4;accent-color:var(--a1)}
+.val{min-width:44px;text-align:right;font-variant-numeric:tabular-nums;font-weight:600}
+select,button{font:inherit;color:var(--text);background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 10px;cursor:pointer}
+button:hover,select:hover{border-color:var(--muted)}
+select{width:100%}
+.btns{display:flex;gap:8px;flex-wrap:wrap}
+.btns button{flex:1}
+.checks{display:grid;grid-template-columns:1fr 1fr;gap:4px 10px;font-size:14px}
+.checks label{display:flex;align-items:center;gap:6px;cursor:pointer}
+.checks input{accent-color:var(--a1)}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.stat{background:var(--bg);border-radius:8px;padding:8px 10px}
+.stat .l{font-size:12px;color:var(--muted)}
+.stat .v{font-size:18px;font-weight:600;font-variant-numeric:tabular-nums}
+.stat.wide{grid-column:1/3}
+.ptog{display:flex;gap:6px;margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
+.ptog button{padding:3px 12px;font-size:13px}
+.ptog button.on{background:var(--bg);border-color:var(--muted);font-weight:600}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:13px;color:var(--muted);margin-top:10px}
+.sw{display:inline-block;width:16px;height:3px;vertical-align:middle;margin-right:4px}
+</style>
+</head>
+<body>
+<main>
+<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px"><h1><span data-i18n="title">Криволинейное движение есмь сумма движений по дугам разных окружностей</span></h1><button id="lang" aria-label="Switch language" style="flex:none">EN</button></div>
+<p class="sub"><span data-i18n="sub">Нарисуйте свою кривую мышью или пальцем прямо на поле — анимация пересчитается. Или выберите готовый пример.</span></p>
+
+<div class="layout">
+  <div class="card">
+    <canvas id="main" role="img" aria-label="Curve drawing canvas"></canvas>
+    <div class="ptog"><button id="pK" class="on">1/R(t)</button><button id="pR">R(t)</button></div>
+    <canvas id="kplot" role="img" aria-label="1/R(t) or R(t) plot"></canvas>
+    <div class="legend">
+      <span><span class="sw" style="background:var(--a1)"></span><span class="sw" style="background:var(--a2)"></span><span data-i18n="lgArcs">куски окружностей</span></span>
+      <span><span class="sw" style="background:var(--osc)"></span><span data-i18n="lgOsc">соприкасающаяся окружность</span></span>
+      <span><span class="sw" style="background:var(--vec)"></span><span data-i18n="lgPlot">график 1/R(t) или R(t)</span></span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="group">
+      <div class="gt"><span data-i18n="gCurve">Кривая</span></div>
+      <select id="preset">
+        <option value="eight" data-i18n="opt_eight">Восьмёрка (есть перегиб)</option>
+        <option value="ellipse" data-i18n="opt_ellipse">Эллипс</option>
+        <option value="stadium" data-i18n="opt_stadium">Стадион: прямая + полуокружность</option>
+        <option value="clothoid" data-i18n="opt_clothoid">Трек с клотоидами</option>
+        <option value="cardioid" data-i18n="opt_cardioid">Кардиоида (точка возврата)</option>
+        <option value="spiral" data-i18n="opt_spiral">Спираль Архимеда</option>
+        <option value="sine" data-i18n="opt_sine">Синусоида</option>
+        <option value="custom" disabled data-i18n="opt_custom">Своя кривая</option>
+      </select>
+      <div class="row" style="margin-top:8px"><label for="closed" style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="closed" style="accent-color:var(--a1)"><span data-i18n="closed">Замкнутая</span></label></div>
+    </div>
+
+    <div class="group">
+      <div class="gt"><span data-i18n="gAnim">Анимация</span></div>
+      <div class="btns" style="margin-bottom:8px">
+        <button id="play">Пауза</button>
+        <button id="restart"><span data-i18n="restart">С начала</span></button>
+      </div>
+      <div class="row"><label for="speed"><span data-i18n="speed">Скорость v</span></label><input type="range" id="speed" min="0.1" max="1.5" step="0.05" value="0.1"><span class="val" id="speedV">0.10</span></div>
+      <div class="row"><label for="pos"><span data-i18n="pos">Положение</span></label><input type="range" id="pos" min="0" max="1000" step="1" value="0"><span class="val" id="posV">0%</span></div>
+    </div>
+
+    <div class="group">
+      <div class="gt"><span data-i18n="gApprox">Приближение</span></div>
+      <div class="row"><label for="narcs"><span data-i18n="narcs">Число дуг N</span></label><input type="range" id="narcs" min="2" max="80" step="1" value="12"><span class="val" id="narcsV">12</span></div>
+      <div class="row"><label for="smooth"><span data-i18n="smooth">Сглаживание σ</span></label><input type="range" id="smooth" min="0" max="25" step="1" value="0"><span class="val" id="smoothV">0</span></div>
+    </div>
+
+    <div class="group">
+      <div class="gt"><span data-i18n="gLayers">Слои</span></div>
+      <div class="checks">
+        <label><input type="checkbox" id="cArcs" checked><span data-i18n="arcs">Дуги</span></label>
+        <label><input type="checkbox" id="cOsc" checked><span data-i18n="circle">Окружность</span></label>
+        <label><input type="checkbox" id="cVec" checked><span data-i18n="vec">Векторы v, aₙ</span></label>
+      </div>
+    </div>
+
+    <div class="group">
+      <div class="gt"><span data-i18n="gPoint">В текущей точке</span></div>
+      <div class="stats">
+        <div class="stat"><div class="l"><span data-i18n="R">Радиус R</span></div><div class="v" id="sR">–</div></div>
+        <div class="stat"><div class="l"><span data-i18n="K">1/R, 1/у.е.</span></div><div class="v" id="sK">–</div></div>
+        <div class="stat"><div class="l" data-i18n="an">aₙ = v²/R, у.е./с²</div><div class="v" id="sA">–</div></div>
+        <div class="stat"><div class="l"><span data-i18n="L">Длина L</span></div><div class="v" id="sL">–</div></div>
+        <div class="stat wide"><div class="l"><span data-i18n="turn">Поворот</span></div><div class="v" id="sD" style="font-size:15px">–</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</main>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const cv = $("main"), ctx = cv.getContext("2d");
+const kc = $("kplot"), kx = kc.getContext("2d");
+let W = 0, H = 0, SC = 1, KW = 0, KH = 0;
+const COL = {};
+function readColors() {
+  const cs = getComputedStyle(document.documentElement);
+  ["bg","panel","text","muted","line","curve","grid","a1","a2","osc","vec"].forEach(k => { COL[k] = cs.getPropertyValue("--" + k).trim(); });
+}
+
+const st = { plot: "k", raw: [], closed: true, smooth: 0, N: 12, v: 0.1, play: true, arcs: true, osc: true, vec: true, s: 0 };
+let C = null;
+
+function resize() {
+  const d = window.devicePixelRatio || 1;
+  W = cv.clientWidth; H = cv.clientHeight;
+  cv.width = Math.round(W * d); cv.height = Math.round(H * d);
+  ctx.setTransform(d, 0, 0, d, 0, 0);
+  SC = Math.min(W, H) / 2.4;
+  KW = kc.clientWidth; KH = kc.clientHeight;
+  kc.width = Math.round(KW * d); kc.height = Math.round(KH * d);
+  kx.setTransform(d, 0, 0, d, 0, 0);
+}
+const toS = (x, y) => [W / 2 + x * SC, H / 2 - y * SC];
+const toW = (px, py) => [(px - W / 2) / SC, (H / 2 - py) / SC];
+
+function resample(P, closed, h) {
+  const Q = closed ? P.concat([P[0]]) : P;
+  const cum = [0];
+  for (let i = 1; i < Q.length; i++) cum.push(cum[i - 1] + Math.hypot(Q[i][0] - Q[i - 1][0], Q[i][1] - Q[i - 1][1]));
+  const L = cum[cum.length - 1];
+  if (L < 1e-9) return { pts: [], L: 0, step: 0 };
+  const n = Math.max(16, Math.min(4000, Math.round(L / h)));
+  const step = L / n, count = closed ? n : n + 1, out = [];
+  let j = 1;
+  for (let k = 0; k < count; k++) {
+    const s = Math.min(k * step, L);
+    while (j < cum.length - 1 && cum[j] < s) j++;
+    const s0 = cum[j - 1], s1 = cum[j];
+    const t = s1 > s0 ? Math.min(1, Math.max(0, (s - s0) / (s1 - s0))) : 0;
+    out.push([Q[j - 1][0] + (Q[j][0] - Q[j - 1][0]) * t, Q[j - 1][1] + (Q[j][1] - Q[j - 1][1]) * t]);
+  }
+  return { pts: out, L, step };
+}
+
+function gauss(P, closed, sig) {
+  if (sig < 0.3) return P.slice();
+  const r = Math.ceil(3 * sig), w = [];
+  for (let k = -r; k <= r; k++) w.push(Math.exp(-k * k / (2 * sig * sig)));
+  const n = P.length, out = [];
+  for (let i = 0; i < n; i++) {
+    let sx = 0, sy = 0, sw = 0;
+    for (let k = -r; k <= r; k++) {
+      let j = i + k;
+      if (closed) j = ((j % n) + n) % n;
+      else if (j < 0 || j >= n) continue;
+      const ww = w[k + r];
+      sx += P[j][0] * ww; sy += P[j][1] * ww; sw += ww;
+    }
+    out.push([sx / sw, sy / sw]);
+  }
+  return out;
+}
+
+function process() {
+  if (st.raw.length < 3) { C = null; return; }
+  const h = 0.005;
+  let r = resample(st.raw, st.closed, h);
+  if (!r.pts.length) { C = null; return; }
+  let P = gauss(r.pts, st.closed, st.smooth * 0.01 / r.step);
+  r = resample(P, st.closed, h);
+  P = r.pts;
+  const n = P.length, ds = r.step;
+  let k = Math.max(1, Math.round(0.02 / ds));
+  if (!st.closed) k = Math.max(1, Math.min(k, Math.floor((n - 1) / 2)));
+  const X = new Float64Array(n), Y = new Float64Array(n), K = new Float64Array(n), TX = new Float64Array(n), TY = new Float64Array(n);
+  const wrap = i => ((i % n) + n) % n;
+  for (let i = 0; i < n; i++) {
+    X[i] = P[i][0]; Y[i] = P[i][1];
+    const c = st.closed ? i : Math.min(n - 1 - k, Math.max(k, i));
+    const a = st.closed ? wrap(c - k) : c - k, b = st.closed ? wrap(c + k) : c + k;
+    const hk = k * ds;
+    const dx = (P[b][0] - P[a][0]) / (2 * hk), dy = (P[b][1] - P[a][1]) / (2 * hk);
+    const ddx = (P[b][0] - 2 * P[c][0] + P[a][0]) / (hk * hk), ddy = (P[b][1] - 2 * P[c][1] + P[a][1]) / (hk * hk);
+    const sp = Math.hypot(dx, dy) || 1e-9;
+    K[i] = (dx * ddy - dy * ddx) / (sp * sp * sp);
+    TX[i] = dx / sp; TY[i] = dy / sp;
+  }
+  {
+    const sg = Math.max(1, k / 2), r = Math.ceil(3 * sg), w = [];
+    for (let j = -r; j <= r; j++) w.push(Math.exp(-j * j / (2 * sg * sg)));
+    const K0 = K.slice();
+    for (let i = 0; i < n; i++) {
+      let a = 0, sw = 0;
+      for (let j = -r; j <= r; j++) {
+        let q = i + j;
+        if (st.closed) q = wrap(q); else if (q < 0 || q >= n) continue;
+        a += K0[q] * w[j + r]; sw += w[j + r];
+      }
+      K[i] = a / sw;
+    }
+  }
+  const L = st.closed ? n * ds : (n - 1) * ds;
+  const abs = Array.from(K, Math.abs).sort((p, q) => p - q);
+  const kmax = Math.max(0.5, abs[Math.floor(0.98 * (abs.length - 1))] * 1.15);
+  const rmed = 1 / Math.max(1e-9, abs[Math.floor(0.5 * (abs.length - 1))]);
+  const rcap = Math.min(10, Math.max(0.5, 3 * rmed));
+  C = { n, ds, L, X, Y, K, TX, TY, kmax, rcap, closed: st.closed };
+  if (st.s > L) st.s = 0;
+}
+
+function fit(P, closed, smooth) {
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+  P.forEach(p => { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); y0 = Math.min(y0, p[1]); y1 = Math.max(y1, p[1]); });
+  const hx = W / 2 / SC * 0.82, hy = H / 2 / SC * 0.82;
+  const s = Math.min(2 * hx / Math.max(1e-6, x1 - x0), 2 * hy / Math.max(1e-6, y1 - y0));
+  const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+  return { pts: P.map(p => [(p[0] - cx) * s, (p[1] - cy) * s]), closed, smooth };
+}
+
+function param(f, t0, t1, m, closed) {
+  const P = [];
+  const cnt = closed ? m : m + 1;
+  for (let i = 0; i < cnt; i++) P.push(f(t0 + (t1 - t0) * i / m));
+  return P;
+}
+
+function track(clothoid) {
+  const ds = 0.002, a = 1.2, k0 = 2;
+  const segs = clothoid
+    ? [[a, 0, 0], [0.6, 0, k0], [Math.PI / k0 - 0.6, k0, k0], [0.6, k0, 0]]
+    : [[a, 0, 0], [Math.PI / k0, k0, k0]];
+  let x = 0, y = 0, th = 0;
+  const P = [[0, 0]];
+  for (let rep = 0; rep < 2; rep++) for (const sg of segs) {
+    const m = Math.max(1, Math.round(sg[0] / ds)), d = sg[0] / m;
+    for (let i = 0; i < m; i++) {
+      const kk = sg[1] + (sg[2] - sg[1]) * (i + 0.5) / m;
+      const tm = th + kk * d / 2;
+      x += Math.cos(tm) * d; y += Math.sin(tm) * d; th += kk * d;
+      P.push([x, y]);
+    }
+  }
+  P.pop();
+  return P;
+}
+
+function preset(name) {
+  const T = 2 * Math.PI;
+  switch (name) {
+    case "eight": return fit(param(t => [Math.sin(t), 0.6 * Math.sin(2 * t)], 0, T, 4000, true), true, 0);
+    case "ellipse": return fit(param(t => [1.2 * Math.cos(t), 0.7 * Math.sin(t)], 0, T, 4000, true), true, 0);
+    case "stadium": return fit(track(false), true, 0);
+    case "clothoid": return fit(track(true), true, 0);
+    case "cardioid": return fit(param(t => { const r = 0.6 * (1 + Math.cos(t)); return [r * Math.cos(t), r * Math.sin(t)]; }, 0, T, 4000, true), true, 0);
+    case "spiral": return fit(param(t => { const r = 0.07 * t; return [r * Math.cos(t), r * Math.sin(t)]; }, 0.6, 5 * Math.PI, 4000, false), false, 0);
+    case "sine": return fit(param(x => [x, 0.4 * Math.sin(3 * x)], -1.6, 1.6, 3000, false), false, 0);
+  }
+  return null;
+}
+
+function loadPreset(name) {
+  const p = preset(name);
+  if (!p) return;
+  st.raw = p.pts; st.closed = p.closed; st.smooth = p.smooth; st.s = 0;
+  syncUI(); process();
+}
+
+function syncUI() {
+  $("closed").checked = st.closed;
+  $("smooth").value = st.smooth; $("smoothV").textContent = st.smooth;
+}
+
+function arrow(c, x0, y0, x1, y1, col, lw) {
+  c.strokeStyle = col; c.fillStyle = col; c.lineWidth = lw;
+  c.beginPath(); c.moveTo(x0, y0); c.lineTo(x1, y1); c.stroke();
+  const a = Math.atan2(y1 - y0, x1 - x0), h = 9;
+  c.beginPath(); c.moveTo(x1, y1);
+  c.lineTo(x1 - h * Math.cos(a - 0.4), y1 - h * Math.sin(a - 0.4));
+  c.lineTo(x1 - h * Math.cos(a + 0.4), y1 - h * Math.sin(a + 0.4));
+  c.closePath(); c.fill();
+}
+
+function arc3(A, B, Cp) {
+  const ax = A[0], ay = A[1], bx = B[0], by = B[1], cx = Cp[0], cy = Cp[1];
+  const d = 2 * (ax * (by - cy) + bx * (cy - ay) + cx * (ay - by));
+  const cr = (bx - ax) * (cy - by) - (by - ay) * (cx - bx);
+  ctx.moveTo(ax, ay);
+  if (Math.abs(d) < 1e-6) { ctx.lineTo(cx, cy); return; }
+  const a2 = ax * ax + ay * ay, b2 = bx * bx + by * by, c2 = cx * cx + cy * cy;
+  const ux = (a2 * (by - cy) + b2 * (cy - ay) + c2 * (ay - by)) / d;
+  const uy = (a2 * (cx - bx) + b2 * (ax - cx) + c2 * (bx - ax)) / d;
+  const r = Math.hypot(ax - ux, ay - uy);
+  if (r > 20000) { ctx.lineTo(cx, cy); return; }
+  ctx.arc(ux, uy, r, Math.atan2(ay - uy, ax - ux), Math.atan2(cy - uy, cx - ux), cr < 0);
+}
+
+let drawing = false, stroke = [];
+
+function drawMain() {
+  ctx.clearRect(0, 0, W, H);
+  ctx.strokeStyle = COL.grid; ctx.lineWidth = 1; ctx.beginPath();
+  const g = SC * 0.5;
+  for (let x = W / 2 % g; x < W; x += g) { ctx.moveTo(x, 0); ctx.lineTo(x, H); }
+  for (let y = H / 2 % g; y < H; y += g) { ctx.moveTo(0, y); ctx.lineTo(W, y); }
+  ctx.stroke();
+  ctx.strokeStyle = COL.muted; ctx.lineWidth = 2; ctx.beginPath();
+  ctx.moveTo(14, H - 14); ctx.lineTo(14 + SC, H - 14); ctx.stroke();
+  ctx.fillStyle = COL.muted; ctx.font = "12px system-ui,sans-serif";
+  ctx.fillText(T("unit"), 18 + SC, H - 10);
+
+  if (drawing) {
+    ctx.strokeStyle = COL.text; ctx.lineWidth = 2; ctx.beginPath();
+    stroke.forEach((p, i) => { const q = toS(p[0], p[1]); i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]); });
+    ctx.stroke();
+    return;
+  }
+  if (!C) {
+    ctx.fillStyle = COL.muted; ctx.font = "15px system-ui,sans-serif"; ctx.textAlign = "center";
+    ctx.fillText(T("hint"), W / 2, H / 2); ctx.textAlign = "left";
+    return;
+  }
+  const { n, X, Y, K, TX, TY } = C;
+
+  ctx.strokeStyle = COL.curve; ctx.lineWidth = 1.2; ctx.beginPath();
+  for (let i = 0; i < n; i++) { const q = toS(X[i], Y[i]); i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]); }
+  if (C.closed) ctx.closePath();
+  ctx.stroke();
+
+
+  if (st.arcs) {
+    const tot = C.closed ? n : n - 1, N = Math.min(st.N, Math.floor(tot / 2));
+    ctx.lineWidth = 3.2; ctx.lineCap = "round";
+    for (let j = 0; j < N; j++) {
+      const a = Math.round(j * tot / N), b = Math.round((j + 1) * tot / N), m = Math.round((a + b) / 2);
+      const ia = a % n, ib = C.closed ? b % n : b, im = m % n;
+      ctx.strokeStyle = j % 2 ? COL.a2 : COL.a1;
+      ctx.beginPath(); arc3(toS(X[ia], Y[ia]), toS(X[im], Y[im]), toS(X[ib], Y[ib])); ctx.stroke();
+    }
+    ctx.fillStyle = COL.text;
+    for (let j = 0; j <= N; j++) {
+      if (C.closed && j === N) break;
+      const a = Math.min(n - 1, Math.round(j * tot / N) % (C.closed ? n : n + 1));
+      const q = toS(X[a], Y[a]); ctx.beginPath(); ctx.arc(q[0], q[1], 2.2, 0, 2 * Math.PI); ctx.fill();
+    }
+    ctx.lineCap = "butt";
+  }
+
+  const i = idxAt(st.s), k = K[i], px = X[i], py = Y[i], tx = TX[i], ty = TY[i];
+  const ps = toS(px, py), R = 1 / Math.abs(k);
+  if (st.osc) {
+    ctx.strokeStyle = COL.osc; ctx.lineWidth = 1.6; ctx.setLineDash([6, 5]); ctx.beginPath();
+    if (R * SC < 4 * Math.max(W, H)) {
+      const cs = toS(px - ty / k, py + tx / k);
+      ctx.arc(cs[0], cs[1], R * SC, 0, 2 * Math.PI); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(ps[0], ps[1]); ctx.lineTo(cs[0], cs[1]); ctx.stroke();
+      ctx.setLineDash([]); ctx.fillStyle = COL.osc; ctx.beginPath(); ctx.arc(cs[0], cs[1], 3.5, 0, 2 * Math.PI); ctx.fill();
+    } else {
+      const e = 3 * Math.max(W, H) / SC, a = toS(px - tx * e, py - ty * e), b = toS(px + tx * e, py + ty * e);
+      ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke();
+    }
+    ctx.setLineDash([]);
+  }
+  if (st.vec) {
+    const tv = toS(px + tx * 0.32, py + ty * 0.32);
+    arrow(ctx, ps[0], ps[1], tv[0], tv[1], COL.vec, 2);
+    ctx.fillStyle = COL.vec; ctx.font = "italic 14px system-ui,sans-serif"; ctx.fillText("v", tv[0] + 5, tv[1] - 5);
+    const len = Math.min(0.6, 0.15 * Math.abs(k));
+    if (len > 0.01) {
+      const sg = Math.sign(k), av = toS(px - ty * sg * len, py + tx * sg * len);
+      arrow(ctx, ps[0], ps[1], av[0], av[1], COL.osc, 2);
+      ctx.fillStyle = COL.osc; ctx.fillText("aₙ", av[0] + 5, av[1] + 14);
+    }
+  }
+  ctx.fillStyle = COL.osc; ctx.beginPath(); ctx.arc(ps[0], ps[1], 6, 0, 2 * Math.PI); ctx.fill();
+  ctx.strokeStyle = COL.panel; ctx.lineWidth = 2; ctx.stroke();
+}
+
+function idxAt(s) {
+  const i = Math.round(s / C.ds);
+  return C.closed ? ((i % C.n) + C.n) % C.n : Math.min(C.n - 1, Math.max(0, i));
+}
+
+function drawK() {
+  kx.clearRect(0, 0, KW, KH);
+  const padL = 44, padR = 10, padT = 18, padB = 18, w = KW - padL - padR, h = KH - padT - padB;
+  kx.font = "12px system-ui,sans-serif";
+  const isK = st.plot === "k";
+  kx.fillStyle = COL.muted; kx.fillText(T(isK ? "axK" : "axR"), 4, 12);
+  if (!C) return;
+  const { n, K, kmax, rcap } = C, T1 = C.L / st.v;
+  const yOf = isK
+    ? (k => padT + h / 2 - Math.max(-kmax, Math.min(kmax, k)) * h / 2 / kmax)
+    : (k => padT + h - Math.min(rcap, 1 / Math.max(1e-9, Math.abs(k))) * h / rcap);
+  kx.strokeStyle = COL.line; kx.lineWidth = 1; kx.beginPath();
+  const yb = isK ? padT + h / 2 : padT + h;
+  kx.moveTo(padL, yb); kx.lineTo(padL + w, yb); kx.moveTo(padL, padT); kx.lineTo(padL, padT + h); kx.stroke();
+  kx.fillStyle = COL.muted; kx.textAlign = "right";
+  if (isK) {
+    kx.fillText("+" + kmax.toFixed(1), padL - 4, padT + 9);
+    kx.fillText("0", padL - 4, padT + h / 2 + 4);
+    kx.fillText("−" + kmax.toFixed(1), padL - 4, padT + h);
+  } else {
+    kx.fillText("≥" + rcap.toFixed(1), padL - 4, padT + 9);
+    kx.fillText("0", padL - 4, padT + h);
+    kx.setLineDash([2, 3]); kx.strokeStyle = COL.line; kx.beginPath(); kx.moveTo(padL, padT); kx.lineTo(padL + w, padT); kx.stroke(); kx.setLineDash([]);
+  }
+  kx.textAlign = "left"; kx.fillText("0", padL - 3, KH - 3);
+  kx.textAlign = "right"; kx.fillText("t = " + T1.toFixed(1) + " " + T("sec"), padL + w, KH - 3); kx.textAlign = "left";
+  kx.strokeStyle = COL.vec; kx.lineWidth = 1.6; kx.beginPath();
+  for (let i = 0; i < n; i++) {
+    const x = padL + w * i / (n - 1), y = yOf(K[i]);
+    i ? kx.lineTo(x, y) : kx.moveTo(x, y);
+  }
+  kx.stroke();
+  if (!isK) {
+    kx.fillStyle = COL.osc; kx.font = "13px system-ui,sans-serif"; kx.textAlign = "center";
+    const runs = [];
+    let start = -1;
+    for (let i = 0; i <= n; i++) {
+      const clip = i < n && 1 / Math.max(1e-9, Math.abs(K[i])) >= rcap;
+      if (clip && start < 0) start = i;
+      if (!clip && start >= 0) {
+        const last = runs[runs.length - 1];
+        if (last && start - last[1] < n * 0.03) last[1] = i - 1; else runs.push([start, i - 1]);
+        start = -1;
+      }
+    }
+    runs.forEach(rn => kx.fillText("∞", padL + w * ((rn[0] + rn[1]) / 2) / (n - 1), padT - 4));
+    kx.textAlign = "left";
+  }
+  const i = idxAt(st.s), x = padL + w * i / (n - 1);
+  kx.strokeStyle = COL.text; kx.lineWidth = 1; kx.setLineDash([3, 3]); kx.beginPath();
+  kx.moveTo(x, padT); kx.lineTo(x, padT + h); kx.stroke(); kx.setLineDash([]);
+  kx.fillStyle = COL.osc; kx.beginPath(); kx.arc(x, yOf(K[i]), 4, 0, 2 * Math.PI); kx.fill();
+}
+
+function updateStats() {
+  if (!C) { ["sR","sK","sA","sL","sD"].forEach(id => $(id).textContent = "–"); return; }
+  const i = idxAt(st.s), k = C.K[i], R = 1 / Math.abs(k);
+  $("sR").textContent = R > 99 ? "→ ∞" : R.toFixed(3);
+  $("sK").textContent = (k >= 0 ? "+" : "−") + Math.abs(k).toFixed(3);
+  $("sA").textContent = (st.v * st.v * Math.abs(k)).toFixed(3);
+  $("sL").textContent = C.L.toFixed(2);
+  $("sD").textContent = Math.abs(k) < 0.05 ? T("straight") : (k > 0 ? T("left") : T("right"));
+  const f = st.s / C.L;
+  $("pos").value = Math.round(f * 1000); $("posV").textContent = Math.round(f * 100) + "%";
+}
+
+let last = performance.now();
+function loop(now) {
+  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  if (C && st.play && !drawing) {
+    st.s += st.v * dt;
+    if (st.s >= C.L) st.s = C.closed ? st.s - C.L : 0;
+  }
+  drawMain(); drawK(); updateStats();
+  requestAnimationFrame(loop);
+}
+
+function pt(e) { const r = cv.getBoundingClientRect(); return toW(e.clientX - r.left, e.clientY - r.top); }
+cv.addEventListener("pointerdown", e => { cv.setPointerCapture(e.pointerId); drawing = true; stroke = [pt(e)]; e.preventDefault(); });
+cv.addEventListener("pointermove", e => {
+  if (!drawing) return;
+  const p = pt(e), q = stroke[stroke.length - 1];
+  if (Math.hypot(p[0] - q[0], p[1] - q[1]) * SC >= 2) stroke.push(p);
+});
+function endStroke() {
+  if (!drawing) return;
+  drawing = false;
+  let len = 0;
+  for (let i = 1; i < stroke.length; i++) len += Math.hypot(stroke[i][0] - stroke[i - 1][0], stroke[i][1] - stroke[i - 1][1]);
+  if (stroke.length < 6 || len * SC < 50) return;
+  const a = stroke[0], b = stroke[stroke.length - 1];
+  st.raw = stroke.slice();
+  st.closed = Math.hypot(a[0] - b[0], a[1] - b[1]) * SC < 30 && len * SC > 120;
+  st.smooth = 6; st.s = 0;
+  $("preset").value = "custom";
+  syncUI(); process();
+}
+cv.addEventListener("pointerup", endStroke);
+cv.addEventListener("pointercancel", endStroke);
+
+$("preset").addEventListener("change", e => loadPreset(e.target.value));
+$("closed").addEventListener("change", e => { st.closed = e.target.checked; process(); });
+$("play").addEventListener("click", () => { st.play = !st.play; $("play").textContent = st.play ? T("pause") : T("play"); });
+$("restart").addEventListener("click", () => { st.s = 0; });
+$("speed").addEventListener("input", e => { st.v = +e.target.value; $("speedV").textContent = st.v.toFixed(2); });
+$("pos").addEventListener("input", e => { if (C) st.s = e.target.value / 1000 * C.L * 0.9999; st.play = false; $("play").textContent = T("play"); });
+$("narcs").addEventListener("input", e => { st.N = +e.target.value; $("narcsV").textContent = st.N; });
+$("smooth").addEventListener("input", e => { st.smooth = +e.target.value; $("smoothV").textContent = st.smooth; process(); });
+function setPlot(p) { st.plot = p; $("pK").classList.toggle("on", p === "k"); $("pR").classList.toggle("on", p === "R"); }
+$("pK").addEventListener("click", () => setPlot("k"));
+$("pR").addEventListener("click", () => setPlot("R"));
+$("cArcs").addEventListener("change", e => st.arcs = e.target.checked);
+$("cOsc").addEventListener("change", e => st.osc = e.target.checked);
+$("cVec").addEventListener("change", e => st.vec = e.target.checked);
+window.addEventListener("resize", () => { resize(); });
+if (window.matchMedia) {
+  const mq = window.matchMedia("(prefers-color-scheme: dark)");
+  if (mq.addEventListener) mq.addEventListener("change", readColors); else if (mq.addListener) mq.addListener(readColors);
+}
+
+const I18N = {
+"ru": {
+"title": "Криволинейное движение есмь сумма движений по дугам разных окружностей",
+"sub": "Нарисуйте свою кривую мышью или пальцем прямо на поле — анимация пересчитается. Или выберите готовый пример.",
+"lgArcs": "куски окружностей",
+"lgOsc": "соприкасающаяся окружность",
+"lgPlot": "график 1/R(t) или R(t)",
+"gCurve": "Кривая",
+"closed": "Замкнутая",
+"gAnim": "Анимация",
+"restart": "С начала",
+"speed": "Скорость v",
+"pos": "Положение",
+"gApprox": "Приближение",
+"narcs": "Число дуг N",
+"smooth": "Сглаживание σ",
+"gLayers": "Слои",
+"arcs": "Дуги",
+"circle": "Окружность",
+"vec": "Векторы v, aₙ",
+"gPoint": "В текущей точке",
+"R": "Радиус R, у.е.",
+"K": "1/R, 1/у.е.",
+"L": "Длина L, у.е.",
+"turn": "Поворот",
+"docTitle": "Соприкасающиеся окружности",
+"unit": "1 у.е.",
+"an": "aₙ = v²/R, у.е./с²",
+"axK": "1/R, 1/у.е.",
+"axR": "R, у.е.",
+"sec": "с",
+"hint": "Нарисуйте кривую мышью или пальцем",
+"straight": "≈ прямая, 1/R ≈ 0",
+"left": "влево (против часовой)",
+"right": "вправо (по часовой)",
+"pause": "Пауза",
+"play": "Пуск",
+"opt_eight": "Восьмёрка (есть перегиб)",
+"opt_ellipse": "Эллипс",
+"opt_stadium": "Стадион: прямая + полуокружность",
+"opt_clothoid": "Трек с клотоидами",
+"opt_cardioid": "Кардиоида (точка возврата)",
+"opt_spiral": "Спираль Архимеда",
+"opt_sine": "Синусоида",
+"opt_custom": "Своя кривая"
+},
+"en": {
+"title": "Curvilinear motion is a sum of motions along arcs of different circles",
+"sub": "Draw your own curve on the canvas with a mouse or finger and the animation will recompute. Or pick a preset.",
+"lgArcs": "circle arcs",
+"lgOsc": "osculating circle",
+"lgPlot": "1/R(t) or R(t) plot",
+"gCurve": "Curve",
+"closed": "Closed",
+"gAnim": "Animation",
+"restart": "Restart",
+"speed": "Speed v",
+"pos": "Position",
+"gApprox": "Approximation",
+"narcs": "Number of arcs N",
+"smooth": "Smoothing σ",
+"gLayers": "Layers",
+"arcs": "Arcs",
+"circle": "Circle",
+"vec": "Vectors v, aₙ",
+"gPoint": "At the current point",
+"R": "Radius R, units",
+"K": "1/R, 1/unit",
+"L": "Length L, units",
+"turn": "Turning",
+"docTitle": "Osculating circles",
+"unit": "1 unit",
+"an": "aₙ = v²/R, units/s²",
+"axK": "1/R, 1/unit",
+"axR": "R, units",
+"sec": "s",
+"hint": "Draw a curve with a mouse or finger",
+"straight": "≈ straight line, 1/R ≈ 0",
+"left": "left (counterclockwise)",
+"right": "right (clockwise)",
+"pause": "Pause",
+"play": "Play",
+"opt_eight": "Figure eight (inflection point)",
+"opt_ellipse": "Ellipse",
+"opt_stadium": "Stadium: line + semicircle",
+"opt_clothoid": "Track with clothoids",
+"opt_cardioid": "Cardioid (cusp)",
+"opt_spiral": "Archimedean spiral",
+"opt_sine": "Sine wave",
+"opt_custom": "Custom curve"
+}
+};
+let LANG = "ru";
+try { LANG = localStorage.getItem("osc_lang") || ((navigator.language || "ru").toLowerCase().startsWith("ru") ? "ru" : "en"); } catch (e) {}
+const T = k => I18N[LANG][k] || k;
+function applyLang() {
+  document.documentElement.lang = LANG;
+  document.title = T("docTitle");
+  document.querySelectorAll("[data-i18n]").forEach(el => { el.textContent = T(el.dataset.i18n); });
+  $("lang").textContent = LANG === "ru" ? "EN" : "RU";
+  $("play").textContent = st.play ? T("pause") : T("play");
+}
+$("lang").addEventListener("click", () => { LANG = LANG === "ru" ? "en" : "ru"; try { localStorage.setItem("osc_lang", LANG); } catch (e) {} applyLang(); });
+readColors(); resize(); applyLang(); loadPreset("eight");
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
