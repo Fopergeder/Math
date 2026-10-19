@@ -1,0 +1,528 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Разложение вектора</title>
+<script>try{var t=localStorage.getItem('vd-theme');if(t)document.documentElement.dataset.theme=t;}catch(e){}</script>
+<style>
+:root{
+  --bg:#f6f6f2; --panel:#ffffff; --ink:#1d1d1f; --muted:#6b6b72; --line:#d8d8d2;
+  --grid:#e9e9e3; --vec:#141416; --cx:#d1402f; --cy:#2463c9; --axis:#7553e8;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#121214; --panel:#1b1b1f; --ink:#ececef; --muted:#9a9aa3; --line:#323239;
+    --grid:#1e1e23; --vec:#f3f3f3; --cx:#ff6b5b; --cy:#5c9cff; --axis:#a68bff;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#121214; --panel:#1b1b1f; --ink:#ececef; --muted:#9a9aa3; --line:#323239;
+  --grid:#1e1e23; --vec:#f3f3f3; --cx:#ff6b5b; --cy:#5c9cff; --axis:#a68bff;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px 0}
+h1{font-size:18px;margin:0;font-weight:650}
+button{font:inherit;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 12px;cursor:pointer}
+button:active{transform:translateY(1px)}
+main{display:grid;grid-template-columns:minmax(0,1fr) 310px;gap:14px;padding:12px 16px 16px}
+@media (max-width:820px){main{grid-template-columns:minmax(0,1fr)}}
+.stage{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+canvas{display:block;width:100%;touch-action:none;cursor:crosshair}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:12px;align-self:start}
+.ctrl label{display:flex;justify-content:space-between;font-size:14px}
+.ctrl output{font-variant-numeric:tabular-nums;font-weight:600}
+input[type=range]{width:100%;accent-color:var(--axis)}
+.hbtns{display:flex;gap:8px}
+.exp{display:flex;gap:8px}
+.exp button{flex:1}
+.tri{width:100%;padding:10px 12px;font-weight:600}
+.tri[aria-pressed="true"]{background:var(--axis);border-color:var(--axis);color:#fff}
+.read{font-variant-numeric:tabular-nums;font-size:14px;border-top:1px solid var(--line);padding-top:10px;display:grid;gap:8px}
+.read .x{color:var(--cx)} .read .y{color:var(--cy)}
+.vec{position:relative;display:inline-block;font-style:italic;font-weight:600;margin-right:.18em}
+.vec::before{content:"";position:absolute;left:.12em;right:-.12em;top:.02em;border-top:1.3px solid currentColor}
+.vec::after{content:"";position:absolute;right:-.16em;top:calc(.02em - 2.5px);border-left:4px solid currentColor;border-top:3px solid transparent;border-bottom:3px solid transparent}
+</style>
+</head>
+<body>
+<header>
+  <h1 data-i18n="title"></h1>
+  <div class="hbtns">
+    <button id="theme" type="button" aria-label="Theme">☀</button>
+    <button id="lang" type="button">EN</button>
+  </div>
+</header>
+<main>
+  <div class="stage" id="stage">
+    <canvas id="cv"></canvas>
+  </div>
+  <aside class="panel">
+    <div class="ctrl">
+      <label><span data-i18n="theta"></span><output id="oT"></output></label>
+      <input type="range" id="sT" min="0" max="90" step="0.5">
+    </div>
+    <div class="ctrl">
+      <label><span data-i18n="comp"></span><output id="oC"></output></label>
+      <input type="range" id="sC" min="0" max="90" step="0.5">
+    </div>
+    <div class="ctrl">
+      <label><span data-i18n="phi"></span><output id="oP"></output></label>
+      <input type="range" id="sP" min="-180" max="180" step="1">
+    </div>
+    <button type="button" id="bTri" class="tri" aria-pressed="false" data-i18n="showTri"></button>
+    <div class="exp">
+      <button type="button" id="bPng">PNG</button>
+      <button type="button" id="bPdf">PDF</button>
+    </div>
+    <div class="read" id="read"></div>
+  </aside>
+</main>
+<script>
+(function () {
+  'use strict';
+  const I18N = {
+    ru: {
+      title: 'Разложение вектора на составляющие',
+      theta: 'θ', comp: '90° − θ', phi: 'Поворот осей φ',
+      showTri: 'Правило треугольника'
+    },
+    en: {
+      title: 'Vector resolution into components',
+      theta: 'θ', comp: '90° − θ', phi: 'Axes rotation φ',
+      showTri: 'Triangle rule'
+    }
+  };
+
+  const U = 50;                       // px per unit
+  const DEG = Math.PI / 180;
+  const cv = document.getElementById('cv');
+  const mainCtx = cv.getContext('2d');
+  let ctx = mainCtx;                  // swapped to an offscreen context during export
+  let exporting = false;              // hides UI-only grab rings in exported images
+  const stage = document.getElementById('stage');
+  const sT = document.getElementById('sT'), sC = document.getElementById('sC'), sP = document.getElementById('sP');
+  const oT = document.getElementById('oT'), oC = document.getElementById('oC'), oP = document.getElementById('oP');
+  const bTri = document.getElementById('bTri');
+  // Triangle-rule animation: SHIFT ms for the parallel translation, then lights loop with period PERIOD (incl. PAUSE).
+  const SHIFT = 1000, PERIOD = 2600, PAUSE = 500;
+  const anim = { on: false, t0: 0 };
+  const ease = u => u < 0.5 ? 2 * u * u : 1 - Math.pow(-2 * u + 2, 2) / 2;
+  const read = document.getElementById('read');
+
+  let W = 0, H = 0, dpr = 1, inited = false;
+  // Screen coords: CSS px, y down. Angles alpha, phi: math convention (CCW, y up).
+  const st = { tail: { x: 0, y: 0 }, L: 4 * U, alpha: 35 * DEG, phi: 0, sx: 1, sy: 1, lang: 'ru' };
+
+  const norm = a => { a = (a + Math.PI) % (2 * Math.PI); if (a < 0) a += 2 * Math.PI; return a - Math.PI; };
+  const dir = a => ({ x: Math.cos(a), y: -Math.sin(a) });
+  const add = (p, d, k) => ({ x: p.x + d.x * k, y: p.y + d.y * k });
+  const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+  const head = () => add(st.tail, dir(st.alpha), st.L);
+  const beta = () => norm(st.alpha - st.phi);
+  const theta = () => { const b = beta(); return Math.atan2(Math.abs(Math.sin(b)), Math.abs(Math.cos(b))); };
+  const t = k => I18N[st.lang][k];
+  const fmt = (n, d) => { const s = (Math.abs(n) < 5e-10 ? 0 : n).toFixed(d === undefined ? 2 : d); return st.lang === 'ru' ? s.replace('.', ',') : s; };
+
+  function updateSigns() {
+    const b = beta(), c = Math.cos(b), s = Math.sin(b);
+    if (Math.abs(c) > 1e-6) st.sx = Math.sign(c);
+    if (Math.abs(s) > 1e-6) st.sy = Math.sign(s);
+  }
+
+  function setTheta(th) {
+    const bNew = Math.atan2(st.sy * Math.sin(th), st.sx * Math.cos(th));
+    st.alpha = norm(st.phi + bNew);
+    updateSigns(); sync(true); draw();
+  }
+
+  function defaults() {
+    st.tail = { x: W * 0.32, y: H * 0.68 };
+    st.L = Math.min(4 * U, 0.45 * Math.min(W, H) + 40);
+    st.alpha = 35 * DEG; st.phi = 0;
+    updateSigns();
+  }
+
+  function resize() {
+    dpr = window.devicePixelRatio || 1;
+    W = stage.clientWidth;
+    H = Math.round(Math.min(Math.max(320, W * 0.68), 600));
+    cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+    cv.style.height = H + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (!inited) { defaults(); inited = true; }
+    st.tail.x = Math.min(Math.max(st.tail.x, 10), W - 10);
+    st.tail.y = Math.min(Math.max(st.tail.y, 10), H - 10);
+    sync(false); draw();
+  }
+
+  function rayDist(p, d) {
+    let r = Infinity;
+    if (d.x > 1e-9) r = Math.min(r, (W - p.x) / d.x); else if (d.x < -1e-9) r = Math.min(r, -p.x / d.x);
+    if (d.y > 1e-9) r = Math.min(r, (H - p.y) / d.y); else if (d.y < -1e-9) r = Math.min(r, -p.y / d.y);
+    return r;
+  }
+  function handleLen(d) { return Math.max(30, Math.min(rayDist(st.tail, d) - 40, Math.max(st.L + 50, 150))); }
+  function handles() {
+    const ex = dir(st.phi), ey = dir(st.phi + Math.PI / 2);
+    return { hx: add(st.tail, ex, handleLen(ex)), hy: add(st.tail, ey, handleLen(ey)) };
+  }
+
+  // ---------- drawing ----------
+  function arrow(a, b, color, w) {
+    const len = dist(a, b); if (len < 1.5) return;
+    const ang = Math.atan2(b.y - a.y, b.x - a.x), hs = Math.min(9 + w * 1.6, len * 0.6);
+    const base = { x: b.x - Math.cos(ang) * hs * 0.85, y: b.y - Math.sin(ang) * hs * 0.85 };
+    ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = w; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(base.x, base.y); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(b.x, b.y);
+    ctx.lineTo(b.x - Math.cos(ang - 0.38) * hs, b.y - Math.sin(ang - 0.38) * hs);
+    ctx.lineTo(b.x - Math.cos(ang + 0.38) * hs, b.y - Math.sin(ang + 0.38) * hs);
+    ctx.closePath(); ctx.fill();
+  }
+  function seg(a, b, color, w, dash) {
+    ctx.strokeStyle = color; ctx.lineWidth = w; ctx.setLineDash(dash || []);
+    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); ctx.setLineDash([]);
+  }
+  function sub(main, s, x, y, color, align) {
+    ctx.fillStyle = color; ctx.font = 'italic 600 15px system-ui,sans-serif';
+    const w1 = ctx.measureText(main).width;
+    ctx.font = 'italic 600 11px system-ui,sans-serif';
+    const w2 = ctx.measureText(s).width;
+    let x0 = x; if (align === 'center') x0 = x - (w1 + w2) / 2;
+    ctx.textBaseline = 'middle';
+    ctx.font = 'italic 600 15px system-ui,sans-serif'; ctx.fillText(main, x0, y);
+    overArrow(ctx, x0, w1, y, color);
+    if (s) { ctx.font = 'italic 600 11px system-ui,sans-serif'; ctx.fillText(s, x0 + w1 + 1, y + 5); }
+  }
+  // vector arrow above a letter drawn with textBaseline 'middle' at 15px
+  function overArrow(c, x0, w, y, color) {
+    const yy = y - 10, xa = x0 + 1.5, xb = x0 + w + 2.5;
+    c.save(); c.strokeStyle = color; c.lineWidth = 1.3; c.lineCap = 'round';
+    c.beginPath(); c.moveTo(xa, yy); c.lineTo(xb, yy);
+    c.moveTo(xb - 3, yy - 2.5); c.lineTo(xb, yy); c.lineTo(xb - 3, yy + 2.5); c.stroke();
+    c.restore();
+  }
+  // mini-markup: {v} = vector v, {v,x} = vector v with subscript x
+  const VTOK = /(\{v(?:,\w)?\})/;
+  function toHtml(s) {
+    return s.replace(/\{v(?:,(\w))?\}/g, (m, sb) => '<span class="vec">v</span>' + (sb ? '<sub>' + sb + '</sub>' : ''));
+  }
+  function canvasRich(c, s, x, y, color) {
+    c.fillStyle = color; c.textBaseline = 'middle';
+    for (const part of s.split(VTOK)) {
+      if (!part) continue;
+      const m = part.match(/^\{v(?:,(\w))?\}$/);
+      if (m) {
+        c.font = 'italic 600 15px system-ui,sans-serif';
+        const w = c.measureText('v').width;
+        c.fillText('v', x, y); overArrow(c, x, w, y, color); x += w + 1;
+        if (m[1]) { c.font = 'italic 600 11px system-ui,sans-serif'; c.fillText(m[1], x, y + 5); x += c.measureText(m[1]).width + 1; }
+      } else {
+        c.font = '15px system-ui,sans-serif'; c.fillText(part, x, y); x += c.measureText(part).width;
+      }
+    }
+  }
+  // withTheta: export adds a separate θ line (sliders aren't in the exported image)
+  function readoutLines(withTheta) {
+    const L = st.L / U, b = beta(), ax = Math.abs(L * Math.cos(b)), ay = Math.abs(L * Math.sin(b)), thd = theta() / DEG;
+    const lines = [{ s: '|{v}| = ' + fmt(L), k: 'ink' }];
+    if (withTheta) lines.push({ s: 'θ = ' + fmt(thd, 1) + '°      90° − θ = ' + fmt(90 - thd, 1) + '°', k: 'ink' });
+    lines.push(
+      { s: '|{v,x}| = |{v}|·cos θ = ' + fmt(L) + '·cos ' + fmt(thd, 1) + '° = ' + fmt(ax), k: 'x' },
+      { s: '|{v,y}| = |{v}|·sin θ = ' + fmt(L) + '·sin ' + fmt(thd, 1) + '° = ' + fmt(ay), k: 'y' }
+    );
+    return lines;
+  }
+  function label(txt, x, y, color, size) {
+    ctx.fillStyle = color; ctx.font = '600 ' + (size || 13) + 'px system-ui,sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(txt, x, y); ctx.textAlign = 'left';
+  }
+  function arc(a1, a2, r, color, txt, double) {
+    const delta = norm(a2 - a1);
+    if (Math.abs(delta) < 0.5 * DEG) return;
+    ctx.strokeStyle = color; ctx.lineWidth = 1.6;
+    const radii = double ? [r, r + 5] : [r];
+    for (const rr of radii) {
+      ctx.beginPath(); ctx.arc(st.tail.x, st.tail.y, rr, -a1, -(a1 + delta), delta > 0); ctx.stroke();
+    }
+    const m = a1 + delta / 2, off = double ? 20 : 15;
+    label(txt, st.tail.x + (r + off) * Math.cos(m), st.tail.y - (r + off) * Math.sin(m), color, 13);
+  }
+  function rightAngle(c, toHead, toTail, color) {
+    const k = 8, p0 = add(c, toHead, k), p1 = add(p0, toTail, k), p2 = add(c, toTail, k);
+    ctx.strokeStyle = color; ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.moveTo(p0.x, p0.y); ctx.lineTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.stroke();
+  }
+
+  function draw() {
+    const cs = getComputedStyle(document.documentElement);
+    const C = n => cs.getPropertyValue(n).trim();
+    const col = { bg: C('--panel'), grid: C('--grid'), vec: C('--vec'), cx: C('--cx'), cy: C('--cy'), axis: C('--axis'), muted: C('--muted') };
+    ctx.fillStyle = col.bg; ctx.fillRect(0, 0, W, H);
+
+    // fixed screen grid
+    ctx.strokeStyle = col.grid; ctx.lineWidth = 1; ctx.beginPath();
+    for (let x = st.tail.x % U; x < W; x += U) { ctx.moveTo(x + 0.5, 0); ctx.lineTo(x + 0.5, H); }
+    for (let y = st.tail.y % U; y < H; y += U) { ctx.moveTo(0, y + 0.5); ctx.lineTo(W, y + 0.5); }
+    ctx.stroke();
+
+    // rotated axes through tail
+    const ex = dir(st.phi), ey = dir(st.phi + Math.PI / 2);
+    const R = Math.hypot(W, H);
+    const { hx, hy } = handles();
+    ctx.globalAlpha = 0.45;
+    seg(add(st.tail, ex, -R), add(st.tail, ex, R), col.axis, 1);
+    seg(add(st.tail, ey, -R), add(st.tail, ey, R), col.axis, 1);
+    ctx.globalAlpha = 1;
+    // ticks
+    ctx.strokeStyle = col.axis; ctx.lineWidth = 1; ctx.beginPath();
+    const nT = Math.ceil(R / U);
+    for (let i = -nT; i <= nT; i++) {
+      if (!i) continue;
+      const px = add(st.tail, ex, i * U), py = add(st.tail, ey, i * U);
+      ctx.moveTo(px.x - ey.x * 4, px.y - ey.y * 4); ctx.lineTo(px.x + ey.x * 4, px.y + ey.y * 4);
+      ctx.moveTo(py.x - ex.x * 4, py.y - ex.y * 4); ctx.lineTo(py.x + ex.x * 4, py.y + ex.y * 4);
+    }
+    ctx.stroke();
+    arrow(st.tail, hx, col.axis, 1.6);
+    arrow(st.tail, hy, col.axis, 1.6);
+    // transparent grab rings on the axis arrowheads (same style as the vector tip)
+    if (!exporting) {
+      ctx.strokeStyle = col.axis; ctx.lineWidth = 1.5; ctx.globalAlpha = 0.5;
+      for (const h of [hx, hy]) { ctx.beginPath(); ctx.arc(h.x, h.y, 12, 0, 2 * Math.PI); ctx.stroke(); }
+      ctx.globalAlpha = 1;
+    }
+    const lx = add(add(hx, ex, 16), ey, 14), ly = add(add(hy, ey, 16), ex, 14);
+    label('x', lx.x, lx.y, col.axis, 15);
+    label('y', ly.x, ly.y, col.axis, 15);
+
+    // components
+    const b = beta(), vx = st.L * Math.cos(b), vy = st.L * Math.sin(b);
+    const Cx = add(st.tail, ex, vx), Cy = add(st.tail, ey, vy), H0 = head();
+    const m = st.sx, k = st.sy;
+    const exs = { x: ex.x * m, y: ex.y * m }, eys = { x: ey.x * k, y: ey.y * k };
+    seg(H0, Cx, col.muted, 1.2, [5, 5]);
+    seg(H0, Cy, col.muted, 1.2, [5, 5]);
+    if (Math.abs(vx) > 12 && Math.abs(vy) > 12) {
+      rightAngle(Cx, eys, { x: -exs.x, y: -exs.y }, col.muted);
+      rightAngle(Cy, exs, { x: -eys.x, y: -eys.y }, col.muted);
+    }
+    // triangle rule: parallel translation of v_y' from the origin to the tip of v_x'
+    const now = performance.now(), el = anim.on ? now - anim.t0 : 0;
+    const shift = anim.on ? ease(Math.min(1, el / SHIFT)) : 0;
+    arrow(st.tail, Cx, col.cx, 4);
+    if (anim.on) {
+      ctx.globalAlpha = 0.35; arrow(st.tail, Cy, col.cy, 4); ctx.globalAlpha = 1;
+      const o = add(st.tail, ex, vx * shift);
+      arrow(o, add(o, ey, vy), col.cy, 4);
+    } else {
+      arrow(st.tail, Cy, col.cy, 4);
+    }
+
+    // component labels (offset to the side away from the vector)
+    const mx = add(add(st.tail, ex, vx / 2), eys, -18);
+    const my = add(add(st.tail, ey, vy / 2), exs, -26);
+    if (Math.abs(vx) > 20) sub('v', 'x', mx.x, mx.y, col.cx, 'center');
+    if (Math.abs(vy) > 20) sub('v', 'y', my.x, my.y, col.cy, 'center');
+
+    // angle arcs
+    if (st.L > 40) {
+      const aX = st.phi + (m < 0 ? Math.PI : 0);
+      const aY = st.phi + (k > 0 ? Math.PI / 2 : -Math.PI / 2);
+      const r = Math.min(46, st.L * 0.35);
+      arc(aX, st.alpha, r, col.cx, 'θ');
+      arc(st.alpha, aY, r + 18, col.cy, '90°−θ', true);
+    }
+
+    // main vector
+    arrow(st.tail, H0, col.vec, 3.5);
+    const vl = add(add(st.tail, dir(st.alpha), st.L * 0.55), dir(st.alpha + Math.PI / 2), 16);
+    sub('v', '', vl.x, vl.y, col.vec, 'center');
+    // tip handle
+    if (!exporting) {
+      ctx.strokeStyle = col.vec; ctx.lineWidth = 1.5; ctx.globalAlpha = 0.5;
+      ctx.beginPath(); ctx.arc(H0.x, H0.y, 12, 0, 2 * Math.PI); ctx.stroke(); ctx.globalAlpha = 1;
+    }
+    // tail dot
+    ctx.fillStyle = col.vec; ctx.beginPath(); ctx.arc(st.tail.x, st.tail.y, 3.5, 0, 2 * Math.PI); ctx.fill();
+
+    // moving lights (after the translation): same start, same duration, same finish point
+    if (anim.on && el > SHIFT) {
+      const ph = (el - SHIFT) % PERIOD, u = ease(Math.min(1, ph / (PERIOD - PAUSE)));
+      const ax = Math.abs(vx), ay = Math.abs(vy), d = u * (ax + ay);
+      const pc = d <= ax ? add(st.tail, exs, d) : add(Cx, eys, d - ax);
+      glow(pc, d <= ax ? col.cx : col.cy);
+      glow(add(st.tail, dir(st.alpha), u * st.L), col.vec);
+    }
+  }
+  function glow(p, color) {
+    ctx.save();
+    ctx.shadowColor = color; ctx.shadowBlur = 18; ctx.fillStyle = color;
+    ctx.beginPath(); ctx.arc(p.x, p.y, 6, 0, 2 * Math.PI); ctx.fill();
+    ctx.shadowBlur = 0; ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(p.x, p.y, 2.5, 0, 2 * Math.PI); ctx.fill();
+    ctx.restore();
+  }
+  function tick() { if (!anim.on) return; draw(); requestAnimationFrame(tick); }
+
+  // ---------- UI sync ----------
+  function sync(fromSlider) {
+    const thd = theta() / DEG, phd = st.phi / DEG;
+    if (!fromSlider || document.activeElement !== sT) sT.value = thd.toFixed(1);
+    if (!fromSlider || document.activeElement !== sC) sC.value = (90 - thd).toFixed(1);
+    if (document.activeElement !== sP) sP.value = Math.round(phd);
+    oT.textContent = fmt(thd, 1) + '°';
+    oC.textContent = fmt(90 - thd, 1) + '°';
+    oP.textContent = fmt(phd, 0) + '°';
+    read.innerHTML = readoutLines(false).map(ln => '<div class="' + ln.k + '">' + toHtml(ln.s) + '</div>').join('');
+  }
+
+  // ---------- pointer interaction ----------
+  // One pointer at a time; a new vector replaces the old one only after the stroke exceeds MIN_STROKE px,
+  // so an accidental tap leaves the current vector untouched.
+  const MIN_STROKE = 12;
+  let drag = null;
+  function pos(e) { const r = cv.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; }
+  cv.addEventListener('pointerdown', e => {
+    if (drag || !e.isPrimary) return;
+    const p = pos(e), { hx, hy } = handles();
+    cv.setPointerCapture(e.pointerId);
+    if (dist(p, head()) < 22) drag = { type: 'head', id: e.pointerId };
+    else if (dist(p, hx) < 22) drag = { type: 'axes', off: 0, id: e.pointerId };
+    else if (dist(p, hy) < 22) drag = { type: 'axes', off: Math.PI / 2, id: e.pointerId };
+    else drag = { type: 'draw', start: p, live: false, id: e.pointerId };
+    e.preventDefault();
+  });
+  cv.addEventListener('pointermove', e => {
+    if (!drag || e.pointerId !== drag.id) return;
+    const p = pos(e);
+    if (drag.type === 'draw') {
+      const s = drag.start, L = dist(s, p);
+      if (!drag.live && L < MIN_STROKE) return;
+      drag.live = true;
+      st.tail = { x: s.x, y: s.y };
+      st.L = Math.max(L, 1); st.alpha = Math.atan2(-(p.y - s.y), p.x - s.x);
+    } else if (drag.type === 'head') {
+      const L = dist(st.tail, p);
+      if (L > 4) { st.L = L; st.alpha = Math.atan2(-(p.y - st.tail.y), p.x - st.tail.x); }
+    } else {
+      st.phi = norm(Math.atan2(-(p.y - st.tail.y), p.x - st.tail.x) - drag.off);
+    }
+    updateSigns(); sync(false); draw();
+  });
+  function end(e) {
+    if (!drag || e.pointerId !== drag.id) return;
+    drag = null; updateSigns(); sync(false); draw();
+  }
+  cv.addEventListener('pointerup', end);
+  cv.addEventListener('pointercancel', end);
+
+  sT.addEventListener('input', () => setTheta(parseFloat(sT.value) * DEG));
+  sC.addEventListener('input', () => setTheta((90 - parseFloat(sC.value)) * DEG));
+  sP.addEventListener('input', () => { st.phi = norm(parseFloat(sP.value) * DEG); updateSigns(); sync(true); draw(); });
+  bTri.addEventListener('click', () => {
+    anim.on = !anim.on;
+    bTri.setAttribute('aria-pressed', String(anim.on));
+    if (anim.on) { anim.t0 = performance.now(); requestAnimationFrame(tick); } else draw();
+  });
+
+  // ---------- theme ----------
+  const themeBtn = document.getElementById('theme');
+  function effectiveDark() {
+    const t0 = document.documentElement.dataset.theme;
+    if (t0) return t0 === 'dark';
+    return !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  }
+  function setTheme(mode) {
+    if (mode) document.documentElement.dataset.theme = mode; else delete document.documentElement.dataset.theme;
+    try { if (mode) localStorage.setItem('vd-theme', mode); else localStorage.removeItem('vd-theme'); } catch (e) {}
+    themeBtn.textContent = effectiveDark() ? '☀' : '☾';
+    draw();
+  }
+  themeBtn.addEventListener('click', () => setTheme(effectiveDark() ? 'light' : 'dark'));
+  themeBtn.textContent = effectiveDark() ? '☀' : '☾';
+
+  // ---------- export (PNG / PDF): figure + calculations, rendered at 2× or device scale ----------
+  function renderExport() {
+    const lines = readoutLines(true);
+    const s = Math.max(2, dpr), lineH = 26, pad = 16, textH = pad * 2 + lineH * lines.length;
+    const off = document.createElement('canvas');
+    off.width = Math.round(W * s); off.height = Math.round((H + textH) * s);
+    const oc = off.getContext('2d');
+    oc.setTransform(s, 0, 0, s, 0, 0);
+    ctx = oc; exporting = true;
+    try { draw(); } finally { ctx = mainCtx; exporting = false; }
+    const cs = getComputedStyle(document.documentElement), C = n => cs.getPropertyValue(n).trim();
+    const col = { ink: C('--ink'), x: C('--cx'), y: C('--cy') };
+    oc.fillStyle = C('--panel'); oc.fillRect(0, H, W, textH);
+    oc.fillStyle = C('--line'); oc.fillRect(0, H, W, 1);
+    lines.forEach((ln, i) => canvasRich(oc, ln.s, pad, H + pad + lineH * (i + 0.5), col[ln.k]));
+    return { canvas: off, cssW: W, cssH: H + textH };
+  }
+  function download(blob, name) {
+    const url = URL.createObjectURL(blob), a = document.createElement('a');
+    a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+  }
+  // Minimal single-page PDF with one JPEG (DCTDecode) image filling the page.
+  function buildPdf(jpeg, iw, ih, pw, ph) {
+    const enc = new TextEncoder(), parts = [], offs = [];
+    let len = 0;
+    const push = x => { const b = typeof x === 'string' ? enc.encode(x) : x; parts.push(b); len += b.length; };
+    const obj = (n, body) => { offs[n] = len; push(n + ' 0 obj\n'); body(); push('\nendobj\n'); };
+    const f = v => (Math.round(v * 100) / 100).toString();
+    push('%PDF-1.4\n');
+    obj(1, () => push('<< /Type /Catalog /Pages 2 0 R >>'));
+    obj(2, () => push('<< /Type /Pages /Kids [3 0 R] /Count 1 >>'));
+    obj(3, () => push('<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ' + f(pw) + ' ' + f(ph) + '] /Resources << /XObject << /Im0 4 0 R >> >> /Contents 5 0 R >>'));
+    obj(4, () => {
+      push('<< /Type /XObject /Subtype /Image /Width ' + iw + ' /Height ' + ih + ' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ' + jpeg.length + ' >>\nstream\n');
+      push(jpeg); push('\nendstream');
+    });
+    const content = 'q ' + f(pw) + ' 0 0 ' + f(ph) + ' 0 0 cm /Im0 Do Q';
+    obj(5, () => push('<< /Length ' + content.length + ' >>\nstream\n' + content + '\nendstream'));
+    const xref = len;
+    let x = 'xref\n0 6\n0000000000 65535 f \n';
+    for (let n = 1; n <= 5; n++) x += String(offs[n]).padStart(10, '0') + ' 00000 n \n';
+    push(x + 'trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n' + xref + '\n%%EOF\n');
+    return new Blob(parts, { type: 'application/pdf' });
+  }
+  const stamp = () => 'vector_decomposition_' + new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+  document.getElementById('bPng').addEventListener('click', () => {
+    const r = renderExport();
+    r.canvas.toBlob(b => { if (b) download(b, stamp() + '.png'); }, 'image/png');
+  });
+  document.getElementById('bPdf').addEventListener('click', () => {
+    const r = renderExport();
+    r.canvas.toBlob(b => {
+      if (!b) return;
+      b.arrayBuffer().then(buf => {
+        const pdf = buildPdf(new Uint8Array(buf), r.canvas.width, r.canvas.height, r.cssW * 0.75, r.cssH * 0.75);
+        download(pdf, stamp() + '.pdf');
+      });
+    }, 'image/jpeg', 0.95);
+  });
+
+  function applyLang() {
+    document.documentElement.lang = st.lang;
+    document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
+    document.title = t('title');
+    document.getElementById('lang').textContent = st.lang === 'ru' ? 'EN' : 'RU';
+    sync(false);
+  }
+  document.getElementById('lang').addEventListener('click', () => { st.lang = st.lang === 'ru' ? 'en' : 'ru'; applyLang(); draw(); });
+
+  window.addEventListener('resize', resize);
+  if (window.matchMedia) {
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    const onScheme = () => { themeBtn.textContent = effectiveDark() ? '☀' : '☾'; draw(); };
+    if (mq.addEventListener) mq.addEventListener('change', onScheme); else if (mq.addListener) mq.addListener(onScheme); // Safari < 14
+  }
+  applyLang();
+  resize();
+})();
+</script>
+</body>
+</html>
